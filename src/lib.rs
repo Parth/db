@@ -1,23 +1,32 @@
-use std::borrow::BorrowMut;
+use serde::ser::Serialize;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, RwLock};
-use std::thread;
+use std::fmt::Display;
+use std::hash::Hash;
+use std::process::Output;
+use std::sync::{Arc, PoisonError, RwLock};
 
-trait DiskFormat {
-    type DiskRepr;
+type Namespace = String;
 
-    fn to_disk(&self) -> Self::DiskRepr;
-    fn from_disk(data: Self::DiskRepr, writer: Writer) -> Self;
-}
+pub trait Key: Clone + Eq + Hash {}
 
-trait Initialize<Schema> {
-    fn init(path: &str) -> Schema;
-}
-
-pub trait Key: Clone {}
 pub trait Value: Clone {}
-impl<K> Key for K where K: Clone {}
+
+impl<K> Key for K where K: Clone + Eq + Hash {}
+
 impl<V> Value for V where V: Clone {}
+
+pub enum TableError {
+    LockError(String),
+}
+
+impl TableError {
+    fn lock_error<E: Display>(e: E) -> TableError {
+        TableError::LockError(format!(
+            "RwLock Poisoned, this indicates that one of your transactions panicked! Error: {}",
+            e
+        ))
+    }
+}
 
 pub struct Table<K: Key, V: Value> {
     data: Arc<RwLock<HashMap<K, V>>>,
@@ -25,45 +34,102 @@ pub struct Table<K: Key, V: Value> {
 }
 
 impl<K: Key, V: Value> Table<K, V> {
-    fn snapshot(&self) -> HashMap<K, V> {
-        self.data.read().unwrap().clone()
+    fn init(data: HashMap<K, V>, writer: Writer) -> Self {
+        let data = Arc::new(RwLock::new(data));
+        Self { data, writer }
+    }
+
+    fn get(&self, key: &K) -> Result<Option<V>, TableError> {
+        let val = self
+            .data
+            .read()
+            .map_err(TableError::lock_error)?
+            .get(key)
+            .cloned();
+        Ok(val)
+    }
+
+    fn insert(&self, key: K, val: V) -> Result<Option<V>, TableError> {
+        let val = self
+            .data
+            .write()
+            .map_err(TableError::lock_error)?
+            .insert(key, val);
+
+        Ok(val)
     }
 }
 
+#[derive(serde::Serialize)]
+pub enum TableEvent<K: Key, V: Value> {
+    Insert(K, V),
+    Delete(K),
+}
+
+pub trait Logger<K: Key, V: Value> {
+    type Output: Serialize;
+
+    fn insert<S: Serialize>(k: K, v: V) -> Self::Output;
+    fn delete<S: Serialize>(k: K) -> Self::Output;
+}
+
 pub struct Writer {}
+
+pub trait Init<OnDisk, InMemory> {
+    fn read_from_disk(path: &str) -> Vec<OnDisk> {
+        todo!()
+    }
+
+    fn init(path: &str) -> InMemory;
+}
 
 macro_rules! schema {
     ($schema_name:ident {
         $($table_name: ident: <$table_key: ty, $table_value: ty>),*
     }) => {
         struct $schema_name {
-            pub $($table_name: Table<$table_key, $table_value>),*
+            $(pub $table_name: Table<$table_key, $table_value>),*
         }
 
         mod disk {
-            pub struct $schema_name {
-                $(pub $table_name: std::collections::HashMap<$table_key, $table_value>),*
+            #[allow(non_camel_case_types)]
+            #[derive(serde::Serialize)]
+            pub enum $schema_name {
+                $($table_name(crate::TableEvent<$table_key, $table_value>)),*
             }
         }
 
-        impl From<$schema_name> for disk::$schema_name {
-            fn from(schema: $schema_name) -> Self {
-                $(let $table_name = schema.$table_name.snapshot();)*
-                Self {
-                    $($table_name,)*
+        mod log {
+            $(pub struct $table_name {})*
+        }
+
+        $(impl Logger<$table_key, $table_value> for log::$table_name {
+            type Output = disk::$schema_name;
+
+            fn insert<S: Serialize>(k: $table_key, v: $table_value) -> Self::Output {
+                disk::$schema_name::$table_name(TableEvent::Insert(k, v))
+            }
+            fn delete<S: Serialize>(k: $table_key) -> Self::Output {
+                disk::$schema_name::$table_name(TableEvent::Delete(k))
+            }
+        })*
+
+        impl Init<disk::$schema_name, $schema_name> for $schema_name {
+            fn init(path: &str) -> Self {
+                let log = Self::read_from_disk(path);
+                $(let mut $table_name: HashMap<$table_key, $table_value> = HashMap::new();)*
+                for entry in log {
+                    match entry {
+                        $(
+                            disk::$schema_name::$table_name(TableEvent::Insert(k, v)) => $table_name.insert(k, v),
+                            disk::$schema_name::$table_name(TableEvent::Delete(k)) => todo!()
+                        ),*
+                    };
                 }
-            }
-        }
 
-        impl DiskFormat for $schema_name {
-            type DiskRepr = disk::$schema_name;
-
-            fn to_disk(&self) -> Self::DiskRepr {
-                todo!()
-            }
-
-            fn from_disk(data: Self::DiskRepr, writer: Writer) -> Self {
-                todo!()
+                Self {
+                    $($table_name: Table::init($table_name, Writer{})),*
+                }
             }
         }
     }
@@ -76,4 +142,7 @@ schema! {
     }
 }
 
-fn test() {}
+#[test]
+pub fn test() {
+    let db = SchemaV1::init("");
+}
