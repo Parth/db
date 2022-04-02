@@ -12,10 +12,11 @@ macro_rules! schema {
     }) => {
 
         use std::collections::HashMap;
-        use hmdb::log::{TableEvent, Init, Logger, Writer};
+        use hmdb::log::{TableEvent, Reader, LogFormat, Writer};
         use hmdb::table::Table;
 
         struct $schema_name {
+            pub incomplete_write: bool,
             $(pub $table_name: Table<$table_key, $table_value, log::$table_name>),*
         }
 
@@ -23,7 +24,7 @@ macro_rules! schema {
             use hmdb::log::TableEvent;
 
             #[allow(non_camel_case_types)]
-            #[derive(serde::Serialize)]
+            #[derive(serde::Serialize, serde::Deserialize)]
             pub enum $schema_name {
                 $($table_name(TableEvent<$table_key, $table_value>)),*
             }
@@ -36,33 +37,42 @@ macro_rules! schema {
             )*
         }
 
-        $(impl Logger<$table_key, $table_value> for log::$table_name {
-            type Output = disk::$schema_name;
+        $(impl LogFormat<$table_key, $table_value> for log::$table_name {
+            type LogEntry = disk::$schema_name;
 
-            fn insert(k: $table_key, v: $table_value) -> Self::Output {
+            fn insert(k: $table_key, v: $table_value) -> Self::LogEntry {
                 disk::$schema_name::$table_name(TableEvent::Insert(k, v))
             }
-            fn delete(k: $table_key) -> Self::Output {
+            fn delete(k: $table_key) -> Self::LogEntry {
                 disk::$schema_name::$table_name(TableEvent::Delete(k))
             }
         })*
 
-        impl Init<disk::$schema_name, $schema_name> for $schema_name {
-            fn init(path: &str) -> Self {
-                let log = Self::read_from_disk(path);
+        impl Reader<disk::$schema_name, $schema_name> for $schema_name {
+            fn init(path: &str) -> Result<Self, hmdb::errors::ReadError> {
+                let mut file = Self::open_file(path)?;
+                let (log, incomplete_write) = Self::parse_log(&mut file).unwrap();
+                let writer = Writer::init(file);
                 $(let mut $table_name: HashMap<$table_key, $table_value> = HashMap::new();)*
                 for entry in log {
                     match entry {
                         $(
                             disk::$schema_name::$table_name(TableEvent::Insert(k, v)) => $table_name.insert(k, v),
-                            disk::$schema_name::$table_name(TableEvent::Delete(k)) => todo!()
+                            disk::$schema_name::$table_name(TableEvent::Delete(k)) => $table_name.remove(&k)
                         ),*
                     };
                 }
 
-                Self {
-                    $($table_name: Table::init($table_name, Writer::init(path))),*
-                }
+                Ok(
+                    Self {
+                        incomplete_write,
+                        $($table_name: Table::init($table_name, writer.clone())),*
+                    }
+                )
+            }
+
+            fn incomplete_write(&self) -> bool {
+                self.incomplete_write
             }
         }
     }
@@ -71,3 +81,14 @@ macro_rules! schema {
 pub mod errors;
 pub mod log;
 pub mod table;
+
+// TODO: Remove all unwraps
+
+// TODO: Document all the traits
+
+// TODO: Tests that write to the db, open that db check contents, do another write, open another db
+//       check contents. Make sure writer isn't starting from the top when it starts writing (after reading)
+
+// TODO: Log compaction
+
+// TODO: Consider taking a `Path` instead of an str

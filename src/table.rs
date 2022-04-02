@@ -1,5 +1,5 @@
 use crate::errors::TableError;
-use crate::log::{Logger, Writer};
+use crate::log::{LogFormat, Writer};
 use crate::{Key, Value};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -9,7 +9,7 @@ pub struct Table<K, V, Log>
 where
     K: Key,
     V: Value,
-    Log: Logger<K, V>,
+    Log: LogFormat<K, V>,
 {
     data: Arc<RwLock<HashMap<K, V>>>,
     writer: Writer,
@@ -20,7 +20,7 @@ impl<K, V, Log> Table<K, V, Log>
 where
     K: Key,
     V: Value,
-    Log: Logger<K, V>,
+    Log: LogFormat<K, V>,
 {
     pub fn init(data: HashMap<K, V>, writer: Writer) -> Self {
         let data = Arc::new(RwLock::new(data));
@@ -50,5 +50,9 @@ where
         self.writer.append(&data);
 
         Ok(prior)
+    }
+
+    pub fn delete(&self, key: K) {
+        todo!()
     }
 }
