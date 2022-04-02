@@ -43,6 +43,7 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
         file
             .read_to_end(&mut buffer)
             .map_err(|err| ReadError::OsError(format!("After having opened the db file successfully, we were unable to read it into a buffer: {}", err), err))?;
+        println!("what I read {:?}", &buffer);
 
         if buffer.is_empty() {
             return Ok((vec![], false));
@@ -62,6 +63,8 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
                     .expect("slice with incorrect length"),
             );
 
+            println!("size I'm reading: {}", size);
+
             index += 4;
 
             // This cast should be fine on both 32 bit and 64 bit systems, on a less-than 32 bit
@@ -70,7 +73,8 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
                 return Ok((log_entries, true));
             }
 
-            let data = &buffer[index..(size as usize)];
+            let data = &buffer[index..index+(size as usize)];
+            println!("string: {}", String::from_utf8(data.to_vec()).unwrap());
 
             let entry: OnDisk = bincode::deserialize(data).map_err(|err| ReadError::LogParseError(format!(
                 "While parsing the log we were looking for {} bytes for the next entry, we found \
@@ -107,7 +111,12 @@ impl Writer {
         Self { file }
     }
 
-    pub fn append(&self, data: &[u8]) {
-        self.file.lock().unwrap().write_all(data).unwrap();
+    pub fn append<S: Serialize>(&self, data: &S) {
+        let mut data = bincode::serialize(&data).unwrap();
+        let size = data.len() as u32;
+
+        let mut to_write = size.to_be_bytes().to_vec();
+        to_write.append(&mut data);
+        self.file.lock().unwrap().write_all(&to_write).unwrap();
     }
 }

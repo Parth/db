@@ -46,8 +46,7 @@ where
             .insert(key.clone(), val.clone());
 
         let s = Log::insert(key.clone(), val.clone());
-        let data = bincode::serialize(&s).unwrap();
-        self.writer.append(&data);
+        self.writer.append(&s);
 
         Ok(prior)
     }

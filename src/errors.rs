@@ -2,6 +2,7 @@ use bincode::Error;
 use std::fmt::Display;
 use std::io;
 
+#[derive(Debug)]
 pub enum TableError {
     LockError(String),
 }
