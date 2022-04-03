@@ -7,7 +7,7 @@ pub mod schema {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("target");
         path.push(db_file);
-        path.to_str().unwrap().to_string()
+        path.to_str().unwrap().into()
     }
 
     #[test]
@@ -19,12 +19,15 @@ pub mod schema {
             }
         }
 
-        fs::remove_file(test_db("empty.db"))
-            .unwrap_or_else(|_| println!("starting log did not exist"));
+        let db_path = &test_db("empty.db");
 
-        let db = Schema::init(&test_db("empty.db")).unwrap();
+        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+
+        let db = Schema::init(db_path).unwrap();
 
         assert!(!db.incomplete_write);
+
+        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
     }
 
     hmdb::schema! {
@@ -36,27 +39,69 @@ pub mod schema {
 
     #[test]
     fn write_test() {
-        fs::remove_file(test_db("write1.db"))
-            .unwrap_or_else(|_| println!("starting log did not exist"));
+        let db_path = &test_db("write1.db");
 
-        let db1 = Schema::init(&test_db("write1.db")).unwrap();
-        db1.word_counts.insert("test".to_string(), 5).unwrap();
+        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
 
-        let db2 = Schema::init(&test_db("write1.db")).unwrap();
-        assert_eq!(
-            db2.word_counts.get(&"test".to_string()).unwrap().unwrap(),
-            5
-        );
-        db2.word_counts.insert("test2".to_string(), 3).unwrap();
-        assert_eq!(
-            db2.word_counts.get(&"test2".to_string()).unwrap().unwrap(),
-            3
-        );
+        let db1 = Schema::init(db_path).unwrap();
+        db1.word_counts.insert("test".into(), 5).unwrap();
 
-        let db3 = Schema::init(&test_db("write1.db")).unwrap();
-        assert_eq!(
-            db3.word_counts.get(&"test2".to_string()).unwrap().unwrap(),
-            3
-        );
+        let db2 = Schema::init(db_path).unwrap();
+        assert_eq!(db2.word_counts.get(&"test".into()).unwrap().unwrap(), 5);
+        db2.word_counts.insert("test2".into(), 3).unwrap();
+        assert_eq!(db2.word_counts.get(&"test2".into()).unwrap().unwrap(), 3);
+
+        let db3 = Schema::init(db_path).unwrap();
+        assert_eq!(db3.word_counts.get(&"test2".into()).unwrap().unwrap(), 3);
+
+        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+    }
+
+    #[test]
+    fn exists_tests() {
+        let db_path = &test_db("exists.db");
+        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+
+        let db1 = Schema::init(db_path).unwrap();
+        assert!(!db1.word_counts.exists(&"test".into()).unwrap());
+        assert!(db1.word_counts.get(&"test".into()).unwrap().is_none());
+
+        db1.word_counts.insert("test".into(), 435).unwrap();
+        assert!(db1.word_counts.exists(&"test".into()).unwrap());
+        assert!(db1.word_counts.get(&"test".into()).unwrap().is_some());
+
+        db1.word_counts.delete("test".into()).unwrap();
+        assert!(!db1.word_counts.exists(&"test".into()).unwrap());
+        assert!(db1.word_counts.get(&"test".into()).unwrap().is_none());
+
+        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+    }
+
+    #[test]
+    fn delete_test_1() {
+        let db_path = &test_db("delete1.db");
+        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+
+        let db1 = Schema::init(db_path).unwrap();
+        db1.word_counts.insert("test".into(), 234).unwrap();
+        db1.word_counts.delete("test".into()).unwrap();
+        assert!(db1.word_counts.get(&"test".into()).unwrap().is_none());
+
+        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+    }
+
+    #[test]
+    fn delete_test_2() {
+        let db_path = &test_db("delete1.db");
+        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+
+        let db1 = Schema::init(db_path).unwrap();
+        db1.word_counts.insert("test".into(), 234).unwrap();
+
+        let db2 = Schema::init(db_path).unwrap();
+        db2.word_counts.delete("test".into()).unwrap();
+
+        let db2 = Schema::init(db_path).unwrap();
+        db2.word_counts.delete("test".into()).unwrap();
     }
 }

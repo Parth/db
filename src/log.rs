@@ -42,7 +42,6 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
         file
             .read_to_end(&mut buffer)
             .map_err(|err| ReadError::OsError(format!("After having opened the db file successfully, we were unable to read it into a buffer: {}", err), err))?;
-        println!("what I read {:?}", &buffer);
 
         if buffer.is_empty() {
             return Ok((vec![], false));
@@ -73,7 +72,6 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
             }
 
             let data = &buffer[index..index + (size as usize)];
-            println!("string: {}", String::from_utf8(data.to_vec()).unwrap());
 
             let entry: OnDisk = bincode::deserialize(data).map_err(|err| ReadError::LogParseError(format!(
                 "While parsing the log we were looking for {} bytes for the next entry, we found \

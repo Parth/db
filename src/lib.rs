@@ -86,9 +86,11 @@ pub mod table;
 
 // TODO: Document all the traits
 
-// TODO: Tests that write to the db, open that db check contents, do another write, open another db
-//       check contents. Make sure writer isn't starting from the top when it starts writing (after reading)
-
 // TODO: Log compaction
 
 // TODO: Consider taking a `Path` instead of an str
+
+// TODO: The experience of using `String` as your key is somewhat bad, it complains you provided an
+//       &str when it expected &String
+
+// TODO: Have schema migration tests and examples

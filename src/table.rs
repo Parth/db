@@ -38,6 +38,15 @@ where
         Ok(val)
     }
 
+    pub fn exists(&self, key: &K) -> Result<bool, TableError> {
+        let val = self
+            .data
+            .read()
+            .map_err(TableError::lock_error)?
+            .contains_key(key);
+        Ok(val)
+    }
+
     pub fn insert(&self, key: K, val: V) -> Result<Option<V>, TableError> {
         let prior = self
             .data
@@ -51,7 +60,16 @@ where
         Ok(prior)
     }
 
-    pub fn delete(&self, _key: K) {
-        todo!()
+    pub fn delete(&self, key: K) -> Result<Option<V>, TableError> {
+        let prior = self
+            .data
+            .write()
+            .map_err(TableError::lock_error)?
+            .remove(&key);
+
+        let s = Log::delete(key);
+        self.writer.append(&s);
+
+        Ok(prior)
     }
 }
