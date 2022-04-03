@@ -1,4 +1,3 @@
-use bincode::Error;
 use std::fmt::Display;
 use std::io;
 
@@ -19,5 +18,5 @@ impl TableError {
 #[derive(Debug)]
 pub enum ReadError {
     OsError(String, io::Error),
-    LogParseError(String),
+    LogParseError(String, bincode::Error),
 }

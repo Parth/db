@@ -8,7 +8,6 @@ pub mod schema {
         path.push("target");
         path.push(db_file);
         path.to_str().unwrap().to_string()
-
     }
 
     #[test]
@@ -40,14 +39,24 @@ pub mod schema {
         fs::remove_file(test_db("write1.db"))
             .unwrap_or_else(|_| println!("starting log did not exist"));
 
-        let db = Schema::init(&test_db("write1.db")).unwrap();
-        db.word_counts.insert("test".to_string(), 5).unwrap();
+        let db1 = Schema::init(&test_db("write1.db")).unwrap();
+        db1.word_counts.insert("test".to_string(), 5).unwrap();
 
         let db2 = Schema::init(&test_db("write1.db")).unwrap();
-        let test = db2.word_counts.get(&"test".to_string()).unwrap().unwrap();
-        assert_eq!(test, 5);
+        assert_eq!(
+            db2.word_counts.get(&"test".to_string()).unwrap().unwrap(),
+            5
+        );
+        db2.word_counts.insert("test2".to_string(), 3).unwrap();
+        assert_eq!(
+            db2.word_counts.get(&"test2".to_string()).unwrap().unwrap(),
+            3
+        );
 
+        let db3 = Schema::init(&test_db("write1.db")).unwrap();
+        assert_eq!(
+            db3.word_counts.get(&"test2".to_string()).unwrap().unwrap(),
+            3
+        );
     }
-
-
 }

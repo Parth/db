@@ -45,13 +45,13 @@ where
             .map_err(TableError::lock_error)?
             .insert(key.clone(), val.clone());
 
-        let s = Log::insert(key.clone(), val.clone());
+        let s = Log::insert(key, val);
         self.writer.append(&s);
 
         Ok(prior)
     }
 
-    pub fn delete(&self, key: K) {
+    pub fn delete(&self, _key: K) {
         todo!()
     }
 }

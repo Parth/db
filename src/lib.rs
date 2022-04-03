@@ -16,7 +16,7 @@ macro_rules! schema {
         use hmdb::table::Table;
 
         struct $schema_name {
-            pub incomplete_write: bool,
+            incomplete_write: bool,
             $(pub $table_name: Table<$table_key, $table_value, log::$table_name>),*
         }
 

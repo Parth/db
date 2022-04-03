@@ -1,8 +1,7 @@
 use crate::errors::ReadError;
 use crate::{Key, Value};
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-use std::any::Any;
+use serde::Serialize;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
@@ -73,7 +72,7 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
                 return Ok((log_entries, true));
             }
 
-            let data = &buffer[index..index+(size as usize)];
+            let data = &buffer[index..index + (size as usize)];
             println!("string: {}", String::from_utf8(data.to_vec()).unwrap());
 
             let entry: OnDisk = bincode::deserialize(data).map_err(|err| ReadError::LogParseError(format!(
@@ -85,7 +84,7 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
                 std::any::type_name::<OnDisk>(),
                 (buffer.len() as i64) - ((index + (size as usize)) as i64),
                 err
-            )))?;
+            ), err))?;
             log_entries.push(entry);
 
             index += size as usize;
