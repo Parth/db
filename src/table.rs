@@ -77,8 +77,8 @@ where
     #[doc(hidden)]
     pub fn begin_transaction(&self) -> (TransactionTable<K, V, Log>, Writer) {
         let data = self.data.write().unwrap();
-        let log = PhantomData {};
         let pending = vec![];
+        let log = PhantomData {};
 
         (TransactionTable { data, pending, log }, self.writer.clone())
     }
