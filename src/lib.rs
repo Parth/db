@@ -8,16 +8,26 @@ impl<V> Value for V where V: Clone {}
 #[macro_export]
 macro_rules! schema {
     ($schema_name:ident {
-        $($table_name: ident: <$table_key: ty, $table_value: ty>),*
+        $($table_name: ident: <$table_key: ty, $table_value: ty>),+
     }) => {
 
         use std::collections::HashMap;
         use hmdb::log::{TableEvent, Reader, LogFormat, Writer};
         use hmdb::table::Table;
 
+        #[derive(Clone)]
         struct $schema_name {
             incomplete_write: bool,
             $(pub $table_name: Table<$table_key, $table_value, log::$table_name>),*
+        }
+
+        mod transaction {
+            use super::log;
+            use hmdb::table::TransactionTable;
+
+            pub struct $schema_name<'a> {
+                $(pub $table_name: TransactionTable<'a, $table_key, $table_value, log::$table_name>),*
+            }
         }
 
         mod disk {
@@ -30,8 +40,9 @@ macro_rules! schema {
             }
         }
 
-        mod log {
+        pub mod log {
             $(
+                #[derive(Clone)]
                 #[allow(non_camel_case_types)]
                 pub struct $table_name {}
             )*
@@ -57,8 +68,8 @@ macro_rules! schema {
                 for entry in log {
                     match entry {
                         $(
-                            disk::$schema_name::$table_name(TableEvent::Insert(k, v)) => $table_name.insert(k, v),
-                            disk::$schema_name::$table_name(TableEvent::Delete(k)) => $table_name.remove(&k)
+                            disk::$schema_name::$table_name(TableEvent::Insert(k, v)) => { $table_name.insert(k, v); }
+                            disk::$schema_name::$table_name(TableEvent::Delete(k)) => { $table_name.remove(&k); }
                         ),*
                     };
                 }
@@ -75,12 +86,37 @@ macro_rules! schema {
                 self.incomplete_write
             }
         }
+
+        impl $schema_name {
+             pub fn transaction<F, R>(&self, tx: F) -> R where F: Fn(&mut transaction::$schema_name) -> R {
+                $(let ($table_name, writer) = self.$table_name.begin_transaction();)*
+
+                let mut db = transaction::$schema_name {
+                    $($table_name: $table_name,)*
+                };
+
+                let ret = tx(&mut db);
+                let mut result = vec![];
+                $(result.extend(db.$table_name.pending);)*
+
+                writer.append_all(result);
+                ret
+            }
+        }
     }
+}
+
+#[macro_export]
+macro_rules! head {
+    ($head: ident, $($rest: ident),*) => {
+        $head
+    };
 }
 
 pub mod errors;
 pub mod log;
 pub mod table;
+pub mod transaction;
 
 // TODO: Remove all unwraps
 
@@ -94,3 +130,7 @@ pub mod table;
 //       &str when it expected &String
 
 // TODO: Have schema migration tests and examples
+
+// TODO: use $crate: https://stackoverflow.com/a/46654791/1060955
+
+// TODO: More macro hygiene, see schema_tests::start_empty

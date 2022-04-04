@@ -12,12 +12,13 @@ pub mod schema {
 
     #[test]
     fn start_empty() {
-        hmdb::schema! {
-            Schema {
-                word_counts: <String, u64>,
-                word_counts2: <String, u64>
-            }
-        }
+        // TODO: Uncomment to discover a namespacing issue
+        // hmdb::schema! {
+        //     Schema2 {
+        //         word_counts: <String, u64>,
+        //         word_counts2: <String, u64>
+        //     }
+        // }
 
         let db_path = &test_db("empty.db");
 
@@ -33,7 +34,7 @@ pub mod schema {
     hmdb::schema! {
         Schema {
             word_counts: <String, u64>,
-            word_counts2: <String, u64>
+            word_counts2: <String, u8>
         }
     }
 

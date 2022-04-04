@@ -7,6 +7,12 @@ use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 
 #[derive(serde::Serialize, serde::Deserialize)]
+pub enum LogItems<S> {
+    Single(S),
+    Batch(Vec<S>),
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
 pub enum TableEvent<K: Key, V: Value> {
     Insert(K, V),
     Delete(K),
@@ -61,8 +67,6 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
                     .expect("slice with incorrect length"),
             );
 
-            println!("size I'm reading: {}", size);
-
             index += 4;
 
             // This cast should be fine on both 32 bit and 64 bit systems, on a less-than 32 bit
@@ -73,7 +77,7 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
 
             let data = &buffer[index..index + (size as usize)];
 
-            let entry: OnDisk = bincode::deserialize(data).map_err(|err| ReadError::LogParseError(format!(
+            let parsed: LogItems<OnDisk> = bincode::deserialize(data).map_err(|err| ReadError::LogParseError(format!(
                 "While parsing the log we were looking for {} bytes for the next entry, we found \
                 that many bytes, but they failed to deserialize into the type {}. This could \
                 indicate a Schema Data mismatch, or a corrupted log. There are {} bytes left in the \
@@ -83,7 +87,10 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
                 (buffer.len() as i64) - ((index + (size as usize)) as i64),
                 err
             ), err))?;
-            log_entries.push(entry);
+            match parsed {
+                LogItems::Single(entry) => log_entries.push(entry),
+                LogItems::Batch(entries) => log_entries.extend(entries),
+            }
 
             index += size as usize;
         }
@@ -109,7 +116,16 @@ impl Writer {
     }
 
     pub fn append<S: Serialize>(&self, data: &S) {
-        let mut data = bincode::serialize(&data).unwrap();
+        let mut data = bincode::serialize(&LogItems::Single(data)).unwrap();
+        let size = data.len() as u32;
+
+        let mut to_write = size.to_be_bytes().to_vec();
+        to_write.append(&mut data);
+        self.file.lock().unwrap().write_all(&to_write).unwrap();
+    }
+
+    pub fn append_all<S: Serialize>(&self, data: Vec<S>) {
+        let mut data = bincode::serialize(&LogItems::Batch(data)).unwrap();
         let size = data.len() as u32;
 
         let mut to_write = size.to_be_bytes().to_vec();
