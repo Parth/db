@@ -2,21 +2,28 @@ use std::fmt::Display;
 use std::io;
 
 #[derive(Debug)]
-pub enum TableError {
+pub enum Error {
+    OsError(String, io::Error),
+    LogParseError(String, bincode::Error),
     LockError(String),
+    SerializeError(String, bincode::Error),
 }
 
-impl TableError {
+impl Error {
     pub(crate) fn lock_error<E: Display>(e: E) -> Self {
         Self::LockError(format!(
             "RwLock Poisoned, this indicates that one of your transactions panicked! Error: {}",
             e
         ))
     }
-}
 
-#[derive(Debug)]
-pub enum ReadError {
-    OsError(String, io::Error),
-    LogParseError(String, bincode::Error),
+    pub(crate) fn serialize(type_name: &str, e: bincode::Error) -> Self {
+        Self::SerializeError(
+            format!(
+                "Unexpected Error while trying to serialize type {}. Bincode error: {}",
+                type_name, e
+            ),
+            e,
+        )
+    }
 }

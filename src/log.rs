@@ -1,4 +1,4 @@
-use crate::errors::ReadError;
+use crate::errors::Error;
 use crate::{Key, Value};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -12,28 +12,28 @@ pub enum LogItems<S> {
     Batch(Vec<S>),
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
-pub enum TableEvent<K: Key, V: Value> {
-    Insert(K, V),
-    Delete(K),
-}
-
-pub trait LogFormat<K: Key, V: Value> {
+pub trait SchemaEvent<K: Key, V: Value> {
     type LogEntry: Serialize;
 
     fn insert(k: K, v: V) -> Self::LogEntry;
     fn delete(k: K) -> Self::LogEntry;
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+pub enum TableEvent<K: Key, V: Value> {
+    Insert(K, V),
+    Delete(K),
+}
+
 pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
-    fn open_file(path: &str) -> Result<File, ReadError> {
+    fn open_file(path: &str) -> Result<File, Error> {
         OpenOptions::new()
             .read(true)
             .create(true)
             .append(true)
             .open(path)
             .map_err(|err| {
-                ReadError::OsError(
+                Error::OsError(
                     format!(
                         "While opening {} during startup, we received an error from the OS: {}",
                         path, err
@@ -43,11 +43,11 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
             })
     }
 
-    fn parse_log(file: &mut File) -> Result<(Vec<OnDisk>, bool), ReadError> {
+    fn parse_log(file: &mut File) -> Result<(Vec<OnDisk>, bool), Error> {
         let mut buffer: Vec<u8> = Vec::new();
         file
             .read_to_end(&mut buffer)
-            .map_err(|err| ReadError::OsError(format!("After having opened the db file successfully, we were unable to read it into a buffer: {}", err), err))?;
+            .map_err(|err| Error::OsError(format!("After having opened the db file successfully, we were unable to read it into a buffer: {}", err), err))?;
 
         if buffer.is_empty() {
             return Ok((vec![], false));
@@ -77,7 +77,7 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
 
             let data = &buffer[index..index + (size as usize)];
 
-            let parsed: LogItems<OnDisk> = bincode::deserialize(data).map_err(|err| ReadError::LogParseError(format!(
+            let parsed: LogItems<OnDisk> = bincode::deserialize(data).map_err(|err| Error::LogParseError(format!(
                 "While parsing the log we were looking for {} bytes for the next entry, we found \
                 that many bytes, but they failed to deserialize into the type {}. This could \
                 indicate a Schema Data mismatch, or a corrupted log. There are {} bytes left in the \
@@ -100,7 +100,7 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
 
     fn incomplete_write(&self) -> bool;
 
-    fn init(path: &str) -> Result<InMemory, ReadError>;
+    fn init(path: &str) -> Result<InMemory, Error>;
 }
 
 #[derive(Clone)]
@@ -115,21 +115,35 @@ impl Writer {
         Self { file }
     }
 
-    pub fn append<S: Serialize>(&self, data: &S) {
-        let mut data = bincode::serialize(&LogItems::Single(data)).unwrap();
+    pub fn append<S: Serialize>(&self, data: &S) -> Result<(), Error> {
+        let mut data = bincode::serialize(&LogItems::Single(data))
+            .map_err(|err| Error::serialize(std::any::type_name::<LogItems<S>>(), err))?;
         let size = data.len() as u32;
 
         let mut to_write = size.to_be_bytes().to_vec();
         to_write.append(&mut data);
-        self.file.lock().unwrap().write_all(&to_write).unwrap();
+        self.file
+            .lock()
+            .map_err(|err| Error::LockError(format!("Writer lock poisoned, this suggest an internal, unexpected, database error. Error: {}", err)))?
+            .write_all(&to_write)
+            .map_err(|err| Error::OsError(format!("Failed to append {} bytes to the log, error: {}", to_write.len(), err), err))?;
+
+        Ok(())
     }
 
-    pub fn append_all<S: Serialize>(&self, data: Vec<S>) {
-        let mut data = bincode::serialize(&LogItems::Batch(data)).unwrap();
+    pub fn append_all<S: Serialize>(&self, data: Vec<S>) -> Result<(), Error> {
+        let mut data = bincode::serialize(&LogItems::Batch(data))
+            .map_err(|err| Error::serialize(std::any::type_name::<LogItems<S>>(), err))?;
         let size = data.len() as u32;
 
         let mut to_write = size.to_be_bytes().to_vec();
         to_write.append(&mut data);
-        self.file.lock().unwrap().write_all(&to_write).unwrap();
+        self.file
+            .lock()
+            .map_err(|err| Error::LockError(format!("Writer lock poisoned, this suggest an internal, unexpected, database error. Error: {}", err)))?
+            .write_all(&to_write)
+            .map_err(|err| Error::OsError(format!("Failed to append {} bytes to the log for a transaction, error: {}", to_write.len(), err), err))?;
+
+        Ok(())
     }
 }

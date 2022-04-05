@@ -12,7 +12,7 @@ macro_rules! schema {
     }) => {
 
         use std::collections::HashMap;
-        use $crate::log::{TableEvent, Reader, LogFormat, Writer};
+        use $crate::log::{TableEvent, Reader, SchemaEvent, Writer};
         use $crate::table::Table;
 
         #[derive(Clone)]
@@ -23,7 +23,7 @@ macro_rules! schema {
 
         mod transaction {
             use super::log;
-            use hmdb::table::TransactionTable;
+            use $crate::transaction::TransactionTable;
 
             pub struct $schema_name<'a> {
                 $(pub $table_name: TransactionTable<'a, $table_key, $table_value, log::$table_name>),*
@@ -31,7 +31,7 @@ macro_rules! schema {
         }
 
         mod disk {
-            use hmdb::log::TableEvent;
+            use $crate::log::TableEvent;
 
             #[allow(non_camel_case_types)]
             #[derive(serde::Serialize, serde::Deserialize)]
@@ -48,7 +48,7 @@ macro_rules! schema {
             )*
         }
 
-        $(impl LogFormat<$table_key, $table_value> for log::$table_name {
+        $(impl SchemaEvent<$table_key, $table_value> for log::$table_name {
             type LogEntry = disk::$schema_name;
 
             fn insert(k: $table_key, v: $table_value) -> Self::LogEntry {
@@ -60,9 +60,9 @@ macro_rules! schema {
         })*
 
         impl Reader<disk::$schema_name, $schema_name> for $schema_name {
-            fn init(path: &str) -> Result<Self, hmdb::errors::ReadError> {
+            fn init(path: &str) -> Result<Self, $crate::errors::Error> {
                 let mut file = Self::open_file(path)?;
-                let (log, incomplete_write) = Self::parse_log(&mut file).unwrap();
+                let (log, incomplete_write) = Self::parse_log(&mut file)?;
                 let writer = Writer::init(file);
                 $(let mut $table_name: HashMap<$table_key, $table_value> = HashMap::new();)*
                 for entry in log {
@@ -88,11 +88,11 @@ macro_rules! schema {
         }
 
         impl<'b> $crate::transaction::Transaction<'b, transaction::$schema_name<'b>> for $schema_name {
-             fn transaction<F, Out>(&'b self, tx: F) -> Out
+             fn transaction<F, Out>(&'b self, tx: F) -> Result<Out, $crate::errors::Error>
              where
                 F: for<'a> Fn(&'a mut transaction::$schema_name<'b>) -> Out,
              {
-                $(let ($table_name, writer) = self.$table_name.begin_transaction();)*
+                $(let ($table_name, writer) = self.$table_name.begin_transaction()?;)*
 
                 let mut db = transaction::$schema_name {
                     $($table_name: $table_name,)*
@@ -102,8 +102,8 @@ macro_rules! schema {
                 let mut result = vec![];
                 $(result.extend(db.$table_name.pending);)*
 
-                writer.append_all(result);
-                ret
+                writer.append_all(result)?;
+                Ok(ret)
             }
         }
     }
@@ -121,8 +121,6 @@ pub mod log;
 pub mod table;
 pub mod transaction;
 
-// TODO: Remove all unwraps
-
 // TODO: Document all the traits
 
 // TODO: Log compaction
@@ -133,7 +131,5 @@ pub mod transaction;
 //       &str when it expected &String
 
 // TODO: Have schema migration tests and examples
-
-// TODO: use $crate: https://stackoverflow.com/a/46654791/1060955
 
 // TODO: More macro hygiene, see schema_tests::start_empty

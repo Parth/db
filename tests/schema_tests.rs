@@ -121,10 +121,11 @@ pub mod schema {
         db1.word_counts.insert("test".to_string(), 5).unwrap();
 
         db1.transaction(|db| {
-            let mut num = db.word_counts.get(&"test".to_string()).unwrap().unwrap();
+            let mut num = db.word_counts.get(&"test".to_string()).unwrap();
             num += 1;
             db.word_counts.insert("test".to_string(), num).unwrap();
-        });
+        })
+        .unwrap();
 
         assert_eq!(
             db1.word_counts.get(&"test".to_string()).unwrap().unwrap(),
@@ -152,12 +153,14 @@ pub mod schema {
 
         let thread_db = db1.clone();
         std::thread::spawn(move || {
-            thread_db.transaction(|db| {
-                std::thread::sleep(Duration::from_secs(1));
-                let mut num = db.word_counts.get(&"test".to_string()).unwrap().unwrap();
-                num += 1;
-                db.word_counts.insert("test".to_string(), num).unwrap();
-            });
+            thread_db
+                .transaction(|db| {
+                    std::thread::sleep(Duration::from_secs(1));
+                    let mut num = db.word_counts.get(&"test".to_string()).unwrap();
+                    num += 1;
+                    db.word_counts.insert("test".to_string(), num).unwrap();
+                })
+                .unwrap();
         });
         std::thread::sleep(Duration::from_millis(20));
         let now = Instant::now();

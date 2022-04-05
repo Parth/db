@@ -1,5 +1,62 @@
+use crate::errors::Error;
+use crate::log::SchemaEvent;
+use crate::{Key, Value};
+use std::collections::HashMap;
+use std::marker::PhantomData;
+use std::sync::RwLockWriteGuard;
+
 pub trait Transaction<'b, In> {
-    fn transaction<F, Out>(&'b self, tx: F) -> Out
+    fn transaction<F, Out>(&'b self, tx: F) -> Result<Out, Error>
     where
         F: for<'a> Fn(&'a mut In) -> Out;
+}
+
+pub struct TransactionTable<'a, K, V, Log>
+where
+    K: Key,
+    V: Value,
+    Log: SchemaEvent<K, V>,
+{
+    data: RwLockWriteGuard<'a, HashMap<K, V>>,
+    pub pending: Vec<Log::LogEntry>,
+    log: PhantomData<Log>,
+}
+
+impl<'a, K, V, Log> TransactionTable<'a, K, V, Log>
+where
+    K: Key,
+    V: Value,
+    Log: SchemaEvent<K, V>,
+{
+    pub fn init(data: RwLockWriteGuard<'a, HashMap<K, V>>) -> Self {
+        let pending = vec![];
+        let log = PhantomData {};
+        Self { data, pending, log }
+    }
+
+    pub fn get(&self, key: &K) -> Option<V> {
+        self.data.get(key).cloned()
+    }
+
+    pub fn exists(&self, key: &K) -> bool {
+        self.data.contains_key(key)
+    }
+
+    pub fn insert(&mut self, key: K, val: V) -> Option<V> {
+        let prior = self.data.insert(key.clone(), val.clone());
+
+        let s = Log::insert(key, val);
+        self.pending.push(s);
+
+        prior
+    }
+
+    pub fn delete(&mut self, key: K) -> Option<V> {
+        let prior = self.data.remove(&key);
+
+        let s = Log::delete(key);
+        self.pending.push(s);
+
+        prior
+    }
 }
