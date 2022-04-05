@@ -1,9 +1,61 @@
+//! # hmdb
+//!
+//! An embedded database with the following properties:
+//!
+//! + Read Optimized
+//! + Persistent
+//! + Transactional
+//! + In-Memory
+//! + Key Value Store
+//! + Schema defined and enforced in Rust
+//!
+//! ## Defining your schema
+//!
+//! ```ignore,rust
+//!
+//! hmdb::schema! {
+//!     SchemaName {
+//!         table1_name: <u8, String>,
+//!         table2_name: <String, u64>
+//!     }
+//! }
+//! ```
+//!
+//! ## Reading your db file
+//!
+//! ```ignore, rust
+//! let db = SchemaName::init("db.data").unwrap();
+//! ```
+//!
+//! ## Using your tables
+//!
+//! ```ignore, rust
+//! db.table1_name.insert(5, "test".to_string()).unwrap();
+//! let val = db.table1_name.get(5).unwrap().unwrap();
+//!
+//! assert_eq(5, val);
+//! ```
+//!
+//! ## Creating a transaction
+//!
+//! ```ignore, rust
+//!  db.transaction(|tx| {
+//!      let mut num = tx.table2_name.get(&"test".to_string()).unwrap();
+//!      num += 1;
+//!      tx.table2_name.insert("test".to_string(), num).unwrap();
+//!  }).unwrap();
+//! ```
+
+#![forbid(unsafe_code)]
+
 use std::hash::Hash;
 
-pub trait Key: Clone + Eq + Hash {}
-pub trait Value: Clone {}
-impl<K> Key for K where K: Clone + Eq + Hash {}
-impl<V> Value for V where V: Clone {}
+#[macro_export]
+macro_rules! head {
+    ($head: ident, $($rest: ident),*) => {
+        $head
+    };
+}
 
 #[macro_export]
 macro_rules! schema {
@@ -18,19 +70,20 @@ macro_rules! schema {
         #[derive(Clone)]
         struct $schema_name {
             incomplete_write: bool,
-            $(pub $table_name: Table<$table_key, $table_value, log::$table_name>),*
+            $(pub $table_name: Table<$table_key, $table_value, helper_log::$table_name>),*
         }
 
-        mod transaction {
-            use super::log;
+        mod helper_transaction {
+            use super::*;
             use $crate::transaction::TransactionTable;
 
             pub struct $schema_name<'a> {
-                $(pub $table_name: TransactionTable<'a, $table_key, $table_value, log::$table_name>),*
+                $(pub $table_name: TransactionTable<'a, $table_key, $table_value, helper_log::$table_name>),*
             }
         }
 
-        mod disk {
+        mod helper_disk {
+            use super::*;
             use $crate::log::TableEvent;
 
             #[allow(non_camel_case_types)]
@@ -40,7 +93,8 @@ macro_rules! schema {
             }
         }
 
-        pub mod log {
+        pub mod helper_log {
+            use super::*;
             $(
                 #[derive(Clone)]
                 #[allow(non_camel_case_types)]
@@ -48,18 +102,18 @@ macro_rules! schema {
             )*
         }
 
-        $(impl SchemaEvent<$table_key, $table_value> for log::$table_name {
-            type LogEntry = disk::$schema_name;
+        $(impl SchemaEvent<$table_key, $table_value> for helper_log::$table_name {
+            type LogEntry = helper_disk::$schema_name;
 
             fn insert(k: $table_key, v: $table_value) -> Self::LogEntry {
-                disk::$schema_name::$table_name(TableEvent::Insert(k, v))
+                helper_disk::$schema_name::$table_name(TableEvent::Insert(k, v))
             }
             fn delete(k: $table_key) -> Self::LogEntry {
-                disk::$schema_name::$table_name(TableEvent::Delete(k))
+                helper_disk::$schema_name::$table_name(TableEvent::Delete(k))
             }
         })*
 
-        impl Reader<disk::$schema_name, $schema_name> for $schema_name {
+        impl Reader<helper_disk::$schema_name, $schema_name> for $schema_name {
             fn init(path: &str) -> Result<Self, $crate::errors::Error> {
                 let mut file = Self::open_file(path)?;
                 let (log, incomplete_write) = Self::parse_log(&mut file)?;
@@ -68,8 +122,8 @@ macro_rules! schema {
                 for entry in log {
                     match entry {
                         $(
-                            disk::$schema_name::$table_name(TableEvent::Insert(k, v)) => { $table_name.insert(k, v); }
-                            disk::$schema_name::$table_name(TableEvent::Delete(k)) => { $table_name.remove(&k); }
+                            helper_disk::$schema_name::$table_name(TableEvent::Insert(k, v)) => { $table_name.insert(k, v); }
+                            helper_disk::$schema_name::$table_name(TableEvent::Delete(k)) => { $table_name.remove(&k); }
                         ),*
                     };
                 }
@@ -87,14 +141,14 @@ macro_rules! schema {
             }
         }
 
-        impl<'b> $crate::transaction::Transaction<'b, transaction::$schema_name<'b>> for $schema_name {
+        impl<'b> $crate::transaction::Transaction<'b, helper_transaction::$schema_name<'b>> for $schema_name {
              fn transaction<F, Out>(&'b self, tx: F) -> Result<Out, $crate::errors::Error>
              where
-                F: for<'a> Fn(&'a mut transaction::$schema_name<'b>) -> Out,
+                F: for<'a> Fn(&'a mut helper_transaction::$schema_name<'b>) -> Out,
              {
                 $(let ($table_name, writer) = self.$table_name.begin_transaction()?;)*
 
-                let mut db = transaction::$schema_name {
+                let mut db = helper_transaction::$schema_name {
                     $($table_name: $table_name,)*
                 };
 
@@ -109,17 +163,15 @@ macro_rules! schema {
     }
 }
 
-#[macro_export]
-macro_rules! head {
-    ($head: ident, $($rest: ident),*) => {
-        $head
-    };
-}
-
 pub mod errors;
 pub mod log;
 pub mod table;
 pub mod transaction;
+
+pub trait Key: Clone + Eq + Hash {}
+pub trait Value: Clone {}
+impl<K> Key for K where K: Clone + Eq + Hash {}
+impl<V> Value for V where V: Clone {}
 
 // TODO: Document all the traits
 
