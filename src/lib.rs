@@ -12,8 +12,8 @@ macro_rules! schema {
     }) => {
 
         use std::collections::HashMap;
-        use hmdb::log::{TableEvent, Reader, LogFormat, Writer};
-        use hmdb::table::Table;
+        use $crate::log::{TableEvent, Reader, LogFormat, Writer};
+        use $crate::table::Table;
 
         #[derive(Clone)]
         struct $schema_name {
@@ -87,8 +87,11 @@ macro_rules! schema {
             }
         }
 
-        impl $schema_name {
-             pub fn transaction<F, R>(&self, tx: F) -> R where F: Fn(&mut transaction::$schema_name) -> R {
+        impl<'b> $crate::transaction::Transaction<'b, transaction::$schema_name<'b>> for $schema_name {
+             fn transaction<F, Out>(&'b self, tx: F) -> Out
+             where
+                F: for<'a> Fn(&'a mut transaction::$schema_name<'b>) -> Out,
+             {
                 $(let ($table_name, writer) = self.$table_name.begin_transaction();)*
 
                 let mut db = transaction::$schema_name {

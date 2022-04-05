@@ -1,5 +1,6 @@
 #[cfg(test)]
 pub mod schema {
+    use hmdb::transaction::Transaction;
     use std::fs;
     use std::path::PathBuf;
     use std::time::{Duration, Instant};
