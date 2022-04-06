@@ -139,10 +139,16 @@ pub mod schema {
         })
         .unwrap();
 
-        assert_eq!(db1.word_counts.get(&"test".to_string()).unwrap().unwrap(), 6);
+        assert_eq!(
+            db1.word_counts.get(&"test".to_string()).unwrap().unwrap(),
+            6
+        );
 
         let db2 = Schema::init(db_path).unwrap();
-        assert_eq!(db2.word_counts.get(&"test".to_string()).unwrap().unwrap(), 6);
+        assert_eq!(
+            db2.word_counts.get(&"test".to_string()).unwrap().unwrap(),
+            6
+        );
 
         fs::remove_dir_all(db_path)
             .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
@@ -172,7 +178,10 @@ pub mod schema {
         });
         std::thread::sleep(Duration::from_millis(20));
         let now = Instant::now();
-        assert_eq!(db1.word_counts.get(&"test".to_string()).unwrap().unwrap(), 6);
+        assert_eq!(
+            db1.word_counts.get(&"test".to_string()).unwrap().unwrap(),
+            6
+        );
         assert!(now.elapsed().as_millis() > 800);
         fs::remove_dir_all(db_path)
             .unwrap_or_else(|err| println!("starting log did not exist: {}", err));

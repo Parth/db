@@ -54,6 +54,6 @@ pub mod tests {
         assert!(!db.table1.exists(&Test {}).unwrap());
         assert_eq!(db.table2.get(&Test {}).unwrap().unwrap(), u128::MAX);
 
-        // fs::remove_dir_all(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+        fs::remove_dir_all(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
     }
 }

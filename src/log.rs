@@ -37,7 +37,9 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
 
         fs::create_dir_all(&path).unwrap();
 
-        path.push(std::any::type_name::<InMemory>());
+        let schema_name = std::any::type_name::<InMemory>().replace(':', "_");
+
+        path.push(schema_name);
 
         OpenOptions::new()
             .read(true)
