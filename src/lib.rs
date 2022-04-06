@@ -68,7 +68,7 @@ macro_rules! schema {
         use $crate::table::Table;
         use std::path::Path;
 
-        #[derive(Clone)]
+        #[derive(Clone, Debug)]
         pub struct $schema_name {
             incomplete_write: bool,
             $(pub $table_name: Table<$table_key, $table_value, helper_log::$table_name>),*
@@ -97,7 +97,7 @@ macro_rules! schema {
         pub mod helper_log {
             use super::*;
             $(
-                #[derive(Clone)]
+                #[derive(Clone, Debug)]
                 #[allow(non_camel_case_types)]
                 pub struct $table_name {}
             )*

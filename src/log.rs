@@ -117,7 +117,7 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
     fn init<P: AsRef<Path>>(path: P) -> Result<InMemory, Error>;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Writer {
     file: Arc<Mutex<File>>,
 }

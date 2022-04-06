@@ -2,10 +2,11 @@
 pub mod tests {
     use hmdb::schema;
     use hmdb::transaction::Transaction;
+    use serde::{Deserialize, Serialize};
     use std::fs;
     use std::path::PathBuf;
 
-    #[derive(Clone, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
     pub struct Test;
 
     schema! {

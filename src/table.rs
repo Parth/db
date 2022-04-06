@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{Arc, RwLock};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Table<K, V, Log>
 where
     K: Key,
