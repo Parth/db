@@ -22,15 +22,17 @@ pub mod schema {
         //     }
         // }
 
-        let db_path = &test_db("empty.db");
+        let db_path = &test_db("empty_db");
 
-        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+        fs::remove_dir_all(db_path)
+            .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
 
         let db = Schema::init(db_path).unwrap();
 
         assert!(!db.incomplete_write);
 
-        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+        fs::remove_dir_all(db_path)
+            .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
     }
 
     hmdb::schema! {
@@ -40,11 +42,13 @@ pub mod schema {
         }
     }
 
+    // TODO maybe use this for function names: https://docs.rs/function_name/latest/function_name/
     #[test]
     fn write_test() {
-        let db_path = &test_db("write1.db");
+        let db_path = &test_db("write1_db");
 
-        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+        fs::remove_dir_all(db_path)
+            .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
 
         let db1 = Schema::init(db_path).unwrap();
         db1.word_counts.insert("test".into(), 5).unwrap();
@@ -57,13 +61,15 @@ pub mod schema {
         let db3 = Schema::init(db_path).unwrap();
         assert_eq!(db3.word_counts.get(&"test2".into()).unwrap().unwrap(), 3);
 
-        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+        fs::remove_dir_all(db_path)
+            .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
     }
 
     #[test]
     fn exists_tests() {
-        let db_path = &test_db("exists.db");
-        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+        let db_path = &test_db("exists_db");
+        fs::remove_dir_all(db_path)
+            .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
 
         let db1 = Schema::init(db_path).unwrap();
         assert!(!db1.word_counts.exists(&"test".into()).unwrap());
@@ -77,26 +83,30 @@ pub mod schema {
         assert!(!db1.word_counts.exists(&"test".into()).unwrap());
         assert!(db1.word_counts.get(&"test".into()).unwrap().is_none());
 
-        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+        fs::remove_dir_all(db_path)
+            .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
     }
 
     #[test]
     fn delete_test_1() {
-        let db_path = &test_db("delete1.db");
-        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+        let db_path = &test_db("delete1_db");
+        fs::remove_dir_all(db_path)
+            .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
 
         let db1 = Schema::init(db_path).unwrap();
         db1.word_counts.insert("test".into(), 234).unwrap();
         db1.word_counts.delete("test".into()).unwrap();
         assert!(db1.word_counts.get(&"test".into()).unwrap().is_none());
 
-        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+        fs::remove_dir_all(db_path)
+            .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
     }
 
     #[test]
     fn delete_test_2() {
-        let db_path = &test_db("delete2.db");
-        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+        let db_path = &test_db("delete2_db");
+        fs::remove_dir_all(db_path)
+            .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
 
         let db1 = Schema::init(db_path).unwrap();
         db1.word_counts.insert("test".into(), 234).unwrap();
@@ -107,14 +117,16 @@ pub mod schema {
         let db2 = Schema::init(db_path).unwrap();
         db2.word_counts.delete("test".into()).unwrap();
 
-        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+        fs::remove_dir_all(db_path)
+            .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
     }
 
     #[test]
     fn transaction_test_1() {
-        let db_path = &test_db("transaction1.db");
+        let db_path = &test_db("transaction1_db");
 
-        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+        fs::remove_dir_all(db_path)
+            .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
 
         let db1 = Schema::init(db_path).unwrap();
 
@@ -127,25 +139,21 @@ pub mod schema {
         })
         .unwrap();
 
-        assert_eq!(
-            db1.word_counts.get(&"test".to_string()).unwrap().unwrap(),
-            6
-        );
+        assert_eq!(db1.word_counts.get(&"test".to_string()).unwrap().unwrap(), 6);
 
         let db2 = Schema::init(db_path).unwrap();
-        assert_eq!(
-            db2.word_counts.get(&"test".to_string()).unwrap().unwrap(),
-            6
-        );
+        assert_eq!(db2.word_counts.get(&"test".to_string()).unwrap().unwrap(), 6);
 
-        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+        fs::remove_dir_all(db_path)
+            .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
     }
 
     #[test]
     fn transaction_test_2() {
-        let db_path = &test_db("transaction2.db");
+        let db_path = &test_db("transaction2_db");
 
-        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+        fs::remove_dir_all(db_path)
+            .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
 
         let db1 = Schema::init(db_path).unwrap();
 
@@ -164,11 +172,9 @@ pub mod schema {
         });
         std::thread::sleep(Duration::from_millis(20));
         let now = Instant::now();
-        assert_eq!(
-            db1.word_counts.get(&"test".to_string()).unwrap().unwrap(),
-            6
-        );
+        assert_eq!(db1.word_counts.get(&"test".to_string()).unwrap().unwrap(), 6);
         assert!(now.elapsed().as_millis() > 800);
-        fs::remove_file(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
+        fs::remove_dir_all(db_path)
+            .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
     }
 }

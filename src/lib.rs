@@ -24,7 +24,7 @@
 //! ## Reading your db file
 //!
 //! ```ignore, rust
-//! let db = SchemaName::init("db.data").unwrap();
+//! let db = SchemaName::init("db_dir").unwrap();
 //! ```
 //!
 //! ## Using your tables
@@ -66,6 +66,7 @@ macro_rules! schema {
         use std::collections::HashMap;
         use $crate::log::{TableEvent, Reader, SchemaEvent, Writer};
         use $crate::table::Table;
+        use std::path::Path;
 
         #[derive(Clone)]
         struct $schema_name {
@@ -114,7 +115,7 @@ macro_rules! schema {
         })*
 
         impl Reader<helper_disk::$schema_name, $schema_name> for $schema_name {
-            fn init(path: &str) -> Result<Self, $crate::errors::Error> {
+            fn init<P: AsRef<Path>>(path: P) -> Result<Self, $crate::errors::Error> {
                 let mut file = Self::open_file(path)?;
                 let (log, incomplete_write) = Self::parse_log(&mut file)?;
                 let writer = Writer::init(file);

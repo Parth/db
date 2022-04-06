@@ -2,8 +2,10 @@ use crate::errors::Error;
 use crate::{Key, Value};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -26,16 +28,26 @@ pub enum TableEvent<K: Key, V: Value> {
 }
 
 pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
-    fn open_file(path: &str) -> Result<File, Error> {
+    fn open_file<P>(dir: P) -> Result<File, Error>
+    where
+        P: AsRef<Path>,
+    {
+        let mut path = PathBuf::new();
+        path.push(dir);
+
+        fs::create_dir_all(&path).unwrap();
+
+        path.push(std::any::type_name::<InMemory>());
+
         OpenOptions::new()
             .read(true)
             .create(true)
             .append(true)
-            .open(path)
+            .open(&path)
             .map_err(|err| {
                 Error::OsError(
                     format!(
-                        "While opening {} during startup, we received an error from the OS: {}",
+                        "While opening {:?} during startup, we received an error from the OS: {}",
                         path, err
                     ),
                     err,
@@ -100,7 +112,7 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
 
     fn incomplete_write(&self) -> bool;
 
-    fn init(path: &str) -> Result<InMemory, Error>;
+    fn init<P: AsRef<Path>>(path: P) -> Result<InMemory, Error>;
 }
 
 #[derive(Clone)]
