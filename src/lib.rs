@@ -69,7 +69,7 @@ macro_rules! schema {
         use std::path::Path;
 
         #[derive(Clone)]
-        struct $schema_name {
+        pub struct $schema_name {
             incomplete_write: bool,
             $(pub $table_name: Table<$table_key, $table_value, helper_log::$table_name>),*
         }
