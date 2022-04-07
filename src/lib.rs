@@ -74,7 +74,7 @@ macro_rules! schema {
             $(pub $table_name: Table<$table_key, $table_value, helper_log::$table_name>),*
         }
 
-        mod helper_transaction {
+        pub mod transaction {
             use super::*;
             use $crate::transaction::TransactionTable;
 
@@ -142,14 +142,14 @@ macro_rules! schema {
             }
         }
 
-        impl<'b> $crate::transaction::Transaction<'b, helper_transaction::$schema_name<'b>> for $schema_name {
+        impl<'b> $crate::transaction::Transaction<'b, transaction::$schema_name<'b>> for $schema_name {
              fn transaction<F, Out>(&'b self, tx: F) -> Result<Out, $crate::errors::Error>
              where
-                F: for<'a> Fn(&'a mut helper_transaction::$schema_name<'b>) -> Out,
+                F: for<'a> Fn(&'a mut transaction::$schema_name<'b>) -> Out,
              {
                 $(let ($table_name, writer) = self.$table_name.begin_transaction()?;)*
 
-                let mut db = helper_transaction::$schema_name {
+                let mut db = transaction::$schema_name {
                     $($table_name: $table_name,)*
                 };
 
