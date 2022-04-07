@@ -1,10 +1,11 @@
+use std::collections::HashMap;
+use std::marker::PhantomData;
+use std::sync::{Arc, RwLock};
+
 use crate::errors::Error;
 use crate::log::{SchemaEvent, Writer};
 use crate::transaction::TransactionTable;
 use crate::{Key, Value};
-use std::collections::HashMap;
-use std::marker::PhantomData;
-use std::sync::{Arc, RwLock};
 
 #[derive(Clone, Debug)]
 pub struct Table<K, V, Log>
@@ -46,6 +47,11 @@ where
             .read()
             .map_err(Error::lock_error)?
             .contains_key(key);
+        Ok(val)
+    }
+
+    pub fn get_all(&self) -> Result<HashMap<K, V>, Error> {
+        let val = self.data.read().map_err(Error::lock_error)?.clone();
         Ok(val)
     }
 
