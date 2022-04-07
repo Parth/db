@@ -1,9 +1,10 @@
-use crate::errors::Error;
-use crate::log::SchemaEvent;
-use crate::{Key, Value};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::RwLockWriteGuard;
+
+use crate::errors::Error;
+use crate::log::SchemaEvent;
+use crate::{Key, Value};
 
 pub trait Transaction<'b, In> {
     fn transaction<F, Out>(&'b self, tx: F) -> Result<Out, Error>
@@ -36,6 +37,10 @@ where
 
     pub fn get(&self, key: &K) -> Option<V> {
         self.data.get(key).cloned()
+    }
+
+    pub fn get_all(&self) -> HashMap<K, V> {
+        self.data.clone()
     }
 
     pub fn exists(&self, key: &K) -> bool {
