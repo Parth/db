@@ -19,12 +19,14 @@ pub trait SchemaEvent<K: Key, V: Value> {
 
     fn insert(k: K, v: V) -> Self::LogEntry;
     fn delete(k: K) -> Self::LogEntry;
+    fn clear() -> Self::LogEntry;
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum TableEvent<K: Key, V: Value> {
     Insert(K, V),
     Delete(K),
+    Clear,
 }
 
 pub trait Reader<OnDisk: DeserializeOwned, InMemory> {

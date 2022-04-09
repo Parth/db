@@ -4,6 +4,7 @@ pub mod tests {
     use std::path::PathBuf;
 
     use serde::{Deserialize, Serialize};
+    use uuid::Uuid;
 
     use hmdb::schema;
     use hmdb::transaction::Transaction;
@@ -25,16 +26,16 @@ pub mod tests {
         }
     }
 
-    fn test_db(db_file: &str) -> String {
+    fn test_db() -> String {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("target");
-        path.push(db_file);
+        path.push(Uuid::new_v4().to_string());
         path.to_str().unwrap().into()
     }
 
     #[test]
     fn test_non_keys() {
-        let db_path = &test_db("write1_db");
+        let db_path = &test_db();
 
         fs::remove_dir_all(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
         let db = Db::init(db_path).unwrap();
@@ -69,7 +70,7 @@ pub mod tests {
 
     #[test]
     fn test_binary_data() {
-        let db_path = &test_db("write2_db");
+        let db_path = &test_db();
 
         fs::remove_dir_all(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
         let db = Db::init(db_path).unwrap();
@@ -85,7 +86,7 @@ pub mod tests {
 
     #[test]
     fn test_more_binary_data() {
-        let db_path = &test_db("write2_db");
+        let db_path = &test_db();
 
         fs::remove_dir_all(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
         let db = Db::init(db_path).unwrap();
@@ -113,7 +114,7 @@ pub mod tests {
 
     #[test]
     fn test_more_binary_data_2() {
-        let db_path = &test_db("write2_db");
+        let db_path = &test_db();
 
         fs::remove_dir_all(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
         let db = Db::init(db_path).unwrap();

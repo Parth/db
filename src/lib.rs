@@ -112,6 +112,9 @@ macro_rules! schema {
             fn delete(k: $table_key) -> Self::LogEntry {
                 helper_disk::$schema_name::$table_name(TableEvent::Delete(k))
             }
+            fn clear() -> Self::LogEntry {
+                helper_disk::$schema_name::$table_name(TableEvent::Clear)
+            }
         })*
 
         impl Reader<helper_disk::$schema_name, $schema_name> for $schema_name {
@@ -125,6 +128,7 @@ macro_rules! schema {
                         $(
                             helper_disk::$schema_name::$table_name(TableEvent::Insert(k, v)) => { $table_name.insert(k, v); }
                             helper_disk::$schema_name::$table_name(TableEvent::Delete(k)) => { $table_name.remove(&k); }
+                            helper_disk::$schema_name::$table_name(TableEvent::Clear) => { $table_name.clear(); }
                         ),*
                     };
                 }

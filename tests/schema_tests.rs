@@ -4,11 +4,12 @@ pub mod schema {
     use std::fs;
     use std::path::PathBuf;
     use std::time::{Duration, Instant};
+    use uuid::Uuid;
 
-    fn test_db(db_file: &str) -> String {
+    fn test_db() -> String {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("target");
-        path.push(db_file);
+        path.push(Uuid::new_v4().to_string());
         path.to_str().unwrap().into()
     }
 
@@ -22,7 +23,7 @@ pub mod schema {
         //     }
         // }
 
-        let db_path = &test_db("empty_db");
+        let db_path = &test_db();
 
         fs::remove_dir_all(db_path)
             .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
@@ -45,7 +46,7 @@ pub mod schema {
     // TODO maybe use this for function names: https://docs.rs/function_name/latest/function_name/
     #[test]
     fn write_test() {
-        let db_path = &test_db("write1_db");
+        let db_path = &test_db();
 
         fs::remove_dir_all(db_path)
             .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
@@ -67,7 +68,7 @@ pub mod schema {
 
     #[test]
     fn exists_tests() {
-        let db_path = &test_db("exists_db");
+        let db_path = &test_db();
         fs::remove_dir_all(db_path)
             .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
 
@@ -89,7 +90,7 @@ pub mod schema {
 
     #[test]
     fn delete_test_1() {
-        let db_path = &test_db("delete1_db");
+        let db_path = &test_db();
         fs::remove_dir_all(db_path)
             .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
 
@@ -104,7 +105,7 @@ pub mod schema {
 
     #[test]
     fn delete_test_2() {
-        let db_path = &test_db("delete2_db");
+        let db_path = &test_db();
         fs::remove_dir_all(db_path)
             .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
 
@@ -123,7 +124,7 @@ pub mod schema {
 
     #[test]
     fn transaction_test_1() {
-        let db_path = &test_db("transaction1_db");
+        let db_path = &test_db();
 
         fs::remove_dir_all(db_path)
             .unwrap_or_else(|err| println!("starting log did not exist: {}", err));
@@ -156,7 +157,7 @@ pub mod schema {
 
     #[test]
     fn transaction_test_2() {
-        let db_path = &test_db("transaction2_db");
+        let db_path = &test_db();
 
         fs::remove_dir_all(db_path)
             .unwrap_or_else(|err| println!("starting log did not exist: {}", err));

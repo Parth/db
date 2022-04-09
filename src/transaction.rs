@@ -64,4 +64,8 @@ where
 
         prior
     }
+
+    pub fn clear(&mut self) {
+        self.data.clear()
+    }
 }
