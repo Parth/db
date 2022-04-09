@@ -145,4 +145,73 @@ pub mod tests {
 
         fs::remove_dir_all(db_path).unwrap_or_else(|_| println!("starting log did not exist"));
     }
+
+    #[test]
+    fn test_clear_no_tx_1() {
+        let db_path = &test_db();
+
+        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        let db = Db::init(db_path).unwrap();
+        db.table1.insert(Test {}, "test".to_string()).unwrap();
+        db.table2.insert(Test {}, 123).unwrap();
+        db.table3.insert("a".to_string(), vec![1, 2, 3]).unwrap();
+        db.table3.insert("b".to_string(), vec![1, 2, 3]).unwrap();
+        db.table3.insert("c".to_string(), vec![1, 2, 3]).unwrap();
+        db.table3.insert("d".to_string(), vec![1, 2, 3]).unwrap();
+
+        db.transaction(|tx| {
+            tx.table3.clear();
+        })
+        .unwrap();
+
+        assert!(db.table3.get_all().unwrap().is_empty());
+        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+    }
+
+    #[test]
+    fn test_clear_no_tx_2() {
+        let db_path = &test_db();
+
+        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        let db = Db::init(db_path).unwrap();
+        db.table1.insert(Test {}, "test".to_string()).unwrap();
+        db.table2.insert(Test {}, 123).unwrap();
+        db.table3.insert("a".to_string(), vec![1, 2, 3]).unwrap();
+        db.table3.insert("b".to_string(), vec![1, 2, 3]).unwrap();
+        db.table3.insert("c".to_string(), vec![1, 2, 3]).unwrap();
+        db.table3.insert("d".to_string(), vec![1, 2, 3]).unwrap();
+
+        let db = Db::init(db_path).unwrap();
+        db.transaction(|tx| {
+            tx.table3.clear();
+        })
+        .unwrap();
+
+        assert!(db.table3.get_all().unwrap().is_empty());
+        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+    }
+
+    #[test]
+    fn test_clear_no_tx_3() {
+        let db_path = &test_db();
+
+        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        let db = Db::init(db_path).unwrap();
+        db.table1.insert(Test {}, "test".to_string()).unwrap();
+        db.table2.insert(Test {}, 123).unwrap();
+        db.table3.insert("a".to_string(), vec![1, 2, 3]).unwrap();
+        db.table3.insert("b".to_string(), vec![1, 2, 3]).unwrap();
+        db.table3.insert("c".to_string(), vec![1, 2, 3]).unwrap();
+        db.table3.insert("d".to_string(), vec![1, 2, 3]).unwrap();
+
+        let db = Db::init(db_path).unwrap();
+        db.transaction(|tx| {
+            tx.table3.clear();
+        })
+        .unwrap();
+
+        let db = Db::init(db_path).unwrap();
+        assert!(db.table3.get_all().unwrap().is_empty());
+        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+    }
 }

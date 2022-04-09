@@ -6,6 +6,7 @@ pub mod schema {
     use std::time::{Duration, Instant};
     use uuid::Uuid;
 
+    // Could make a type which holds a db and then on drop will clean up the db file.
     fn test_db() -> String {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("target");

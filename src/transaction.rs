@@ -66,6 +66,9 @@ where
     }
 
     pub fn clear(&mut self) {
-        self.data.clear()
+        self.data.clear();
+
+        let s = Log::clear();
+        self.pending.push(s);
     }
 }
