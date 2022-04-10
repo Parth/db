@@ -9,7 +9,7 @@ use crate::{Key, Value};
 pub trait Transaction<'b, In> {
     fn transaction<F, Out>(&'b self, tx: F) -> Result<Out, Error>
     where
-        F: for<'a> Fn(&'a mut In) -> Out;
+        F: for<'a> FnOnce(&'a mut In) -> Out;
 }
 
 pub struct TransactionTable<'a, K, V, Log>

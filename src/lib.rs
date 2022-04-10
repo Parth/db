@@ -149,7 +149,7 @@ macro_rules! schema {
         impl<'b> $crate::transaction::Transaction<'b, transaction::$schema_name<'b>> for $schema_name {
              fn transaction<F, Out>(&'b self, tx: F) -> Result<Out, $crate::errors::Error>
              where
-                F: for<'a> Fn(&'a mut transaction::$schema_name<'b>) -> Out,
+                F: for<'a> FnOnce(&'a mut transaction::$schema_name<'b>) -> Out,
              {
                 $(let ($table_name, writer) = self.$table_name.begin_transaction()?;)*
 
