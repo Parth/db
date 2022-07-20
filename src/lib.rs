@@ -67,6 +67,7 @@ macro_rules! schema {
         use $crate::log::{TableEvent, Reader, SchemaEvent, Writer};
         use $crate::table::Table;
         use std::path::Path;
+        use $crate::transaction::Transaction;
 
         #[derive(Clone, Debug)]
         pub struct $schema_name {
@@ -143,6 +144,24 @@ macro_rules! schema {
 
             fn incomplete_write(&self) -> bool {
                 self.incomplete_write
+            }
+
+            fn compact_log<P: AsRef<Path>>(&self, path: P) -> Result<(), $crate::errors::Error> {
+                $(let ($table_name, writer) = self.$table_name.begin_transaction()?;)*
+
+                let mut data = vec![];
+                $(
+                    for (key, val) in $table_name.get_all() {
+                        data.push(helper_log::$table_name::insert(key, val));
+                    }
+                )*
+
+                let mut schema_path = path.as_ref().to_path_buf();
+                schema_path.push(std::any::type_name::<$schema_name>().replace(':', "_"));
+
+                writer.compact_log(schema_path, data)?;
+
+                Ok(())
             }
         }
 

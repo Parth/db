@@ -7,6 +7,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use uuid::Uuid;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum LogItems<S> {
@@ -117,6 +118,8 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
     fn incomplete_write(&self) -> bool;
 
     fn init<P: AsRef<Path>>(path: P) -> Result<InMemory, Error>;
+
+    fn compact_log<P: AsRef<Path>>(&self, path: P) -> Result<(), Error>;
 }
 
 #[derive(Clone, Debug)]
@@ -159,6 +162,78 @@ impl Writer {
             .map_err(|err| Error::LockError(format!("Writer lock poisoned, this suggest an internal, unexpected, database error. Error: {}", err)))?
             .write_all(&to_write)
             .map_err(|err| Error::OsError(format!("Failed to append {} bytes to the log for a transaction, error: {}", to_write.len(), err), err))?;
+
+        Ok(())
+    }
+
+    pub fn compact_log<S: Serialize, P: AsRef<Path>>(
+        &self,
+        path: P,
+        data: Vec<S>,
+    ) -> Result<(), Error> {
+        let new_db_path = path.as_ref().with_file_name(Uuid::new_v4().to_string());
+
+        let mut new_db = OpenOptions::new()
+            .read(true)
+            .create(true)
+            .append(true)
+            .open(&new_db_path)
+            .map_err(|err| {
+                Error::OsError(
+                    format!(
+                        "While opening {:?} during startup, we received an error from the OS: {}",
+                        path.as_ref(),
+                        err
+                    ),
+                    err,
+                )
+            })?;
+
+        let mut data = bincode::serialize(&LogItems::Batch(data))
+            .map_err(|err| Error::serialize(std::any::type_name::<LogItems<S>>(), err))?;
+
+        let size = data.len() as u32;
+
+        let mut to_write = size.to_be_bytes().to_vec();
+        to_write.append(&mut data);
+
+        new_db.write_all(&to_write).map_err(|err| {
+            Error::OsError(
+                format!(
+                    "Failed to append {} bytes to the log for a transaction, error: {}",
+                    to_write.len(),
+                    err
+                ),
+                err,
+            )
+        })?;
+
+        let old_db_path = path.as_ref().with_file_name(Uuid::new_v4().to_string());
+
+        fs::rename(&path, &old_db_path).map_err(|err| {
+            Error::OsError(
+                format!(
+                    "Failed to rename the old schema file to a temporary name: {:?}, error: {:?}.",
+                    old_db_path.to_str(),
+                    err
+                ),
+                err,
+            )
+        })?;
+        fs::rename(&new_db_path, &path).map_err(|err| Error::OsError(format!("Failed to rename the new schema file to the appropriate schema name: {:?}, error: {:?}.", path.as_ref().to_str(), err), err))?;
+        fs::remove_file(old_db_path).map_err(|err| {
+            Error::OsError(
+                format!("Failed to clean up old schema file, error: {:?}.", err),
+                err,
+            )
+        })?;
+
+        let mut file = self
+            .file
+            .lock()
+            .map_err(|err| Error::LockError(format!("Writer lock poisoned, this suggest an internal, unexpected, database error. Error: {}", err)))?;
+
+        *file = new_db;
 
         Ok(())
     }
