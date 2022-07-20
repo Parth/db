@@ -181,8 +181,8 @@ impl Writer {
             .map_err(|err| {
                 Error::OsError(
                     format!(
-                        "While opening {:?} during startup, we received an error from the OS: {}",
-                        path.as_ref(),
+                        "While creating compaction file at {:?}, we received an error from the OS: {}",
+                        new_db_path.as_ref(),
                         err
                     ),
                     err,
@@ -200,7 +200,7 @@ impl Writer {
         new_db.write_all(&to_write).map_err(|err| {
             Error::OsError(
                 format!(
-                    "Failed to append {} bytes to the log for a transaction, error: {}",
+                    "Failed to append {} bytes to the log for log compaction, error: {}",
                     to_write.len(),
                     err
                 ),
