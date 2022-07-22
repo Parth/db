@@ -8,6 +8,7 @@ pub mod tests {
     use uuid::Uuid;
 
     use hmdb::schema;
+    use hmdb::transaction::Transaction;
 
     const SCHEMA_NAME: &str = "schema_tests2__tests__Db";
 

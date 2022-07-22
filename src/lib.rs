@@ -67,7 +67,6 @@ macro_rules! schema {
         use $crate::log::{TableEvent, Reader, SchemaEvent, Writer};
         use $crate::table::Table;
         use std::path::Path;
-        use $crate::transaction::Transaction;
 
         #[derive(Clone, Debug)]
         pub struct $schema_name {
