@@ -120,9 +120,9 @@ macro_rules! schema {
 
         impl Reader<helper_disk::$schema_name, $schema_name> for $schema_name {
             fn init<P: AsRef<Path>>(path: P) -> Result<Self, $crate::errors::Error> {
-                let mut file = Self::open_file(path)?;
+                let (mut file, schema_path) = Self::open_log(&path)?;
                 let (log, incomplete_write) = Self::parse_log(&mut file)?;
-                let writer = Writer::init(file);
+                let writer = Writer::init(file, schema_path);
                 $(let mut $table_name: HashMap<$table_key, $table_value> = HashMap::new();)*
                 for entry in log {
                     match entry {
@@ -146,7 +146,7 @@ macro_rules! schema {
                 self.incomplete_write
             }
 
-            fn compact_log<P: AsRef<Path>>(&self, path: P) -> Result<(), $crate::errors::Error> {
+            fn compact_log(&self) -> Result<(), $crate::errors::Error> {
                 $(let ($table_name, writer) = self.$table_name.begin_transaction()?;)*
 
                 let mut data = vec![];
@@ -156,10 +156,7 @@ macro_rules! schema {
                     }
                 )*
 
-                let mut schema_path = path.as_ref().to_path_buf();
-                schema_path.push(std::any::type_name::<$schema_name>().replace(':', "_"));
-
-                writer.compact_log(schema_path, data)?;
+                writer.compact_log(data)?;
 
                 Ok(())
             }

@@ -7,7 +7,6 @@ use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use uuid::Uuid;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum LogItems<S> {
@@ -31,7 +30,7 @@ pub enum TableEvent<K: Key, V: Value> {
 }
 
 pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
-    fn open_file<P>(dir: P) -> Result<File, Error>
+    fn open_log<P>(dir: P) -> Result<(File, PathBuf), Error>
     where
         P: AsRef<Path>,
     {
@@ -44,20 +43,7 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
 
         path.push(schema_name);
 
-        OpenOptions::new()
-            .read(true)
-            .create(true)
-            .append(true)
-            .open(&path)
-            .map_err(|err| {
-                Error::OsError(
-                    format!(
-                        "While opening {:?} during startup, we received an error from the OS: {}",
-                        path, err
-                    ),
-                    err,
-                )
-            })
+        Ok((open_file(&path)?, path))
     }
 
     fn parse_log(file: &mut File) -> Result<(Vec<OnDisk>, bool), Error> {
@@ -119,111 +105,51 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
 
     fn init<P: AsRef<Path>>(path: P) -> Result<InMemory, Error>;
 
-    fn compact_log<P: AsRef<Path>>(&self, path: P) -> Result<(), Error>;
+    fn compact_log(&self) -> Result<(), Error>;
 }
 
 #[derive(Clone, Debug)]
 pub struct Writer {
     file: Arc<Mutex<File>>,
+    path: Arc<PathBuf>,
 }
 
 impl Writer {
-    pub fn init(file: File) -> Self {
+    pub fn init<P: AsRef<Path>>(file: File, path: P) -> Self {
         let file = Arc::new(Mutex::new(file));
+        let path = Arc::new(path.as_ref().to_path_buf());
 
-        Self { file }
+        Self { file, path }
     }
 
     pub fn append<S: Serialize>(&self, data: &S) -> Result<(), Error> {
-        let mut data = bincode::serialize(&LogItems::Single(data))
-            .map_err(|err| Error::serialize(std::any::type_name::<LogItems<S>>(), err))?;
-        let size = data.len() as u32;
-
-        let mut to_write = size.to_be_bytes().to_vec();
-        to_write.append(&mut data);
-        self.file
+        let mut file = self.file
             .lock()
-            .map_err(|err| Error::LockError(format!("Writer lock poisoned, this suggest an internal, unexpected, database error. Error: {}", err)))?
-            .write_all(&to_write)
-            .map_err(|err| Error::OsError(format!("Failed to append {} bytes to the log, error: {}", to_write.len(), err), err))?;
+            .map_err(|err| Error::LockError(format!("Writer lock poisoned, this suggest an internal, unexpected, database error. Error: {}", err)))?;
 
-        Ok(())
+        Self::write_to_log(&mut *file, &LogItems::Single(data))
     }
 
     pub fn append_all<S: Serialize>(&self, data: Vec<S>) -> Result<(), Error> {
-        let mut data = bincode::serialize(&LogItems::Batch(data))
-            .map_err(|err| Error::serialize(std::any::type_name::<LogItems<S>>(), err))?;
-        let size = data.len() as u32;
-
-        let mut to_write = size.to_be_bytes().to_vec();
-        to_write.append(&mut data);
-        self.file
+        let mut file = self.file
             .lock()
-            .map_err(|err| Error::LockError(format!("Writer lock poisoned, this suggest an internal, unexpected, database error. Error: {}", err)))?
-            .write_all(&to_write)
-            .map_err(|err| Error::OsError(format!("Failed to append {} bytes to the log for a transaction, error: {}", to_write.len(), err), err))?;
+            .map_err(|err| Error::LockError(format!("Writer lock poisoned, this suggest an internal, unexpected, database error. Error: {}", err)))?;
 
-        Ok(())
+        Self::write_to_log(&mut *file, &LogItems::Batch(data))
     }
 
-    pub fn compact_log<S: Serialize, P: AsRef<Path>>(
-        &self,
-        path: P,
-        data: Vec<S>,
-    ) -> Result<(), Error> {
-        let new_db_path = path.as_ref().with_file_name(Uuid::new_v4().to_string());
+    pub fn compact_log<S: Serialize>(&self, data: Vec<S>) -> Result<(), Error> {
+        let new_db_path = self.path.with_extension(".tmp");
+        let mut new_db = open_file(&new_db_path)?;
 
-        let mut new_db = OpenOptions::new()
-            .read(true)
-            .create(true)
-            .append(true)
-            .open(&new_db_path)
-            .map_err(|err| {
-                Error::OsError(
-                    format!(
-                        "While creating compaction file at {:?}, we received an error from the OS: {}",
-                        new_db_path.as_ref(),
-                        err
-                    ),
-                    err,
-                )
-            })?;
+        Self::write_to_log(&mut new_db, &LogItems::Batch(data))?;
 
-        let mut data = bincode::serialize(&LogItems::Batch(data))
-            .map_err(|err| Error::serialize(std::any::type_name::<LogItems<S>>(), err))?;
-
-        let size = data.len() as u32;
-
-        let mut to_write = size.to_be_bytes().to_vec();
-        to_write.append(&mut data);
-
-        new_db.write_all(&to_write).map_err(|err| {
+        fs::rename(new_db_path, self.path.as_ref()).map_err(|err| {
             Error::OsError(
                 format!(
-                    "Failed to append {} bytes to the log for log compaction, error: {}",
-                    to_write.len(),
+                    "Failed to atomically set compacted schema file, error: {:?}.",
                     err
                 ),
-                err,
-            )
-        })?;
-
-        let old_db_path = path.as_ref().with_file_name(Uuid::new_v4().to_string());
-
-        fs::rename(&path, &old_db_path).map_err(|err| {
-            Error::OsError(
-                format!(
-                    "Failed to rename the old schema file to a temporary name: {:?}, error: {:?}.",
-                    old_db_path.to_str(),
-                    err
-                ),
-                err,
-            )
-        })?;
-        fs::rename(&new_db_path, &path).map_err(|err| Error::OsError(format!("Failed to rename the new schema file to the appropriate schema name: {:?}, error: {:?}.", path.as_ref().to_str(), err), err))?;
-        fs::remove_file(old_db_path).map_err(|err| {
-            Error::OsError(
-                format!("Failed to clean up old schema file, error: {:?}.", err),
                 err,
             )
         })?;
@@ -237,4 +163,43 @@ impl Writer {
 
         Ok(())
     }
+
+    fn write_to_log<S: Serialize>(file: &mut File, data: &LogItems<S>) -> Result<(), Error> {
+        let mut data = bincode::serialize(data)
+            .map_err(|err| Error::serialize(std::any::type_name::<LogItems<S>>(), err))?;
+        let size = data.len() as u32;
+
+        let mut to_write = size.to_be_bytes().to_vec();
+        to_write.append(&mut data);
+        file.write_all(&to_write).map_err(|err| {
+            Error::OsError(
+                format!(
+                    "Failed to append {} bytes to the log, error: {}",
+                    to_write.len(),
+                    err
+                ),
+                err,
+            )
+        })?;
+
+        Ok(())
+    }
+}
+
+fn open_file<P: AsRef<Path>>(path: P) -> Result<File, Error> {
+    OpenOptions::new()
+        .read(true)
+        .create(true)
+        .append(true)
+        .open(&path)
+        .map_err(|err| {
+            Error::OsError(
+                format!(
+                    "While opening log file {:?}, we received an error from the OS: {}",
+                    path.as_ref(),
+                    err
+                ),
+                err,
+            )
+        })
 }
