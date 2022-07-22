@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
+use std::ops::Deref;
 use std::sync::RwLockWriteGuard;
 
 use crate::errors::Error;
@@ -35,12 +36,16 @@ where
         Self { data, pending, log }
     }
 
-    pub fn get(&self, key: &K) -> Option<V> {
-        self.data.get(key).cloned()
+    pub fn keys(&self) -> HashSet<&K> {
+        self.data.keys().collect()
     }
 
-    pub fn get_all(&self) -> HashMap<K, V> {
-        self.data.clone()
+    pub fn get(&self, key: &K) -> Option<&V> {
+        self.data.get(key)
+    }
+
+    pub fn get_all(&self) -> &HashMap<K, V> {
+        self.data.deref()
     }
 
     pub fn exists(&self, key: &K) -> bool {
