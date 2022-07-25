@@ -20,7 +20,7 @@ const INSERT_OPS: [u64; 5] = [
     INSERT_OP * 100,
 ];
 
-pub fn gen_random_int_vec<T>(size: usize) -> Vec<T>
+fn gen_random_int_vec<T>(size: usize) -> Vec<T>
 where
     Standard: Distribution<T>,
 {
@@ -32,14 +32,14 @@ where
     arr
 }
 
-pub fn gen_random_int<T>() -> T
+fn gen_random_int<T>() -> T
 where
     Standard: Distribution<T>,
 {
     thread_rng().gen()
 }
 
-pub fn gen_random_string() -> String {
+fn gen_random_string() -> String {
     thread_rng()
         .sample_iter(&Alphanumeric)
         .take(30)
@@ -84,7 +84,7 @@ fn small_db_ops(c: &mut Criterion) {
         init_db_group.throughput(Throughput::Elements(size));
         init_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             b.iter(|| {
-                SmallDb::init(db_path).unwrap();
+                SmallDb::init(black_box(db_path)).unwrap();
             });
 
             fs::remove_dir_all(&test_dbs_folder()).unwrap();
@@ -98,7 +98,7 @@ fn small_db_ops(c: &mut Criterion) {
         access_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             let db = SmallDb::init(db_path).unwrap();
 
-            b.iter(|| db.table1.get(&Uuid::new_v4()).unwrap());
+            b.iter(|| db.table1.get(black_box(&Uuid::new_v4())).unwrap());
 
             fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
@@ -111,7 +111,7 @@ fn small_db_ops(c: &mut Criterion) {
         remove_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             let db = SmallDb::init(db_path).unwrap();
 
-            b.iter(|| db.table1.delete(Uuid::new_v4()).unwrap());
+            b.iter(|| db.table1.delete(black_box(Uuid::new_v4())).unwrap());
 
             fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
@@ -179,7 +179,7 @@ fn regular_db_ops(c: &mut Criterion) {
         init_db_group.throughput(Throughput::Elements(size));
         init_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             b.iter(|| {
-                RegularDb::init(db_path).unwrap();
+                RegularDb::init(black_box(db_path)).unwrap();
             });
 
             fs::remove_dir_all(&test_dbs_folder()).unwrap();
@@ -206,7 +206,7 @@ fn regular_db_ops(c: &mut Criterion) {
         remove_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             let db = RegularDb::init(db_path).unwrap();
 
-            b.iter(|| db.table1.delete(gen_random_int()).unwrap());
+            b.iter(|| db.table1.delete(black_box(gen_random_int())).unwrap());
 
             fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
@@ -364,7 +364,7 @@ fn large_db_ops(c: &mut Criterion) {
         init_db_group.throughput(Throughput::Elements(size));
         init_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             b.iter(|| {
-                LargeDb::init(db_path).unwrap();
+                LargeDb::init(black_box(db_path)).unwrap();
             });
 
             fs::remove_dir_all(&test_dbs_folder()).unwrap();
@@ -378,7 +378,7 @@ fn large_db_ops(c: &mut Criterion) {
         access_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             let db = LargeDb::init(db_path).unwrap();
 
-            b.iter(|| db.table1.get(&gen_random_int()).unwrap());
+            b.iter(|| db.table1.get(black_box(&gen_random_int())).unwrap());
 
             fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
@@ -391,7 +391,7 @@ fn large_db_ops(c: &mut Criterion) {
         remove_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             let db = LargeDb::init(db_path).unwrap();
 
-            b.iter(|| db.table1.delete(gen_random_int()).unwrap());
+            b.iter(|| db.table1.delete(black_box(gen_random_int())).unwrap());
 
             fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
@@ -406,7 +406,7 @@ fn sled_ops(c: &mut Criterion) {
         let path = test_db();
         sled::open(&path).unwrap();
 
-        b.iter(|| sled::open(&path).unwrap());
+        b.iter(|| sled::open(black_box(&path)).unwrap());
 
         fs::remove_dir_all(&test_dbs_folder()).unwrap();
     });
@@ -417,7 +417,8 @@ fn sled_ops(c: &mut Criterion) {
         let db = sled::open(&path).unwrap();
 
         b.iter(|| {
-            db.insert(gen_random_int_vec::<u8>(100), vec![]).unwrap();
+            db.insert(black_box(gen_random_int_vec::<u8>(100)), black_box(vec![]))
+                .unwrap();
         });
 
         fs::remove_dir_all(&test_dbs_folder()).unwrap();
@@ -431,7 +432,7 @@ fn sled_ops(c: &mut Criterion) {
             let db = sled::open(&path).unwrap();
 
             b.iter(|| {
-                db.get(gen_random_int_vec::<u8>(100)).unwrap();
+                db.get(black_box(gen_random_int_vec::<u8>(100))).unwrap();
             });
 
             fs::remove_dir_all(&test_dbs_folder()).unwrap();
@@ -447,7 +448,7 @@ fn sled_ops(c: &mut Criterion) {
             let db = sled::open(&path).unwrap();
 
             b.iter(|| {
-                db.get(gen_random_int_vec::<u8>(100)).unwrap();
+                db.get(black_box(gen_random_int_vec::<u8>(100))).unwrap();
             });
 
             fs::remove_dir_all(&test_dbs_folder()).unwrap();
@@ -460,7 +461,7 @@ fn sled_ops(c: &mut Criterion) {
         let db = sled::open(&path).unwrap();
 
         b.iter(|| {
-            db.get(gen_random_int_vec::<u8>(100)).unwrap();
+            db.get(black_box(gen_random_int_vec::<u8>(100))).unwrap();
         });
 
         fs::remove_dir_all(&test_dbs_folder()).unwrap();
@@ -471,7 +472,7 @@ fn sled_ops(c: &mut Criterion) {
         let db = sled::open(&path).unwrap();
 
         b.iter(|| {
-            db.remove(gen_random_int_vec::<u8>(100)).unwrap();
+            db.remove(black_box(gen_random_int_vec::<u8>(100))).unwrap();
         });
 
         fs::remove_dir_all(&test_dbs_folder()).unwrap();
