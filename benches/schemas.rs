@@ -1,33 +1,3 @@
-use rand::distributions::{Alphanumeric, Distribution, Standard};
-use rand::{thread_rng, Rng};
-
-pub fn gen_random_int_vec<T>(size: usize) -> Vec<T>
-where
-    Standard: Distribution<T>,
-{
-    let mut arr = Vec::new();
-    for _ in 0..size {
-        arr.push(gen_random_int::<T>())
-    }
-
-    arr
-}
-
-pub fn gen_random_int<T>() -> T
-where
-    Standard: Distribution<T>,
-{
-    thread_rng().gen()
-}
-
-pub fn gen_random_string() -> String {
-    thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(30)
-        .map(char::from)
-        .collect()
-}
-
 pub mod reg_db {
     use uuid::Uuid;
 

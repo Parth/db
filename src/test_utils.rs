@@ -9,7 +9,7 @@ pub fn test_dbs_folder() -> PathBuf {
 }
 
 pub fn test_db() -> PathBuf {
-    let mut path = test_dbs_folder().clone();
+    let mut path = test_dbs_folder();
     path.push(Uuid::new_v4().to_string());
     path
 }

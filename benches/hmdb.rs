@@ -1,10 +1,11 @@
-use crate::schemas::gen_random_int_vec;
 use crate::schemas::large_db::LargeDb;
 use crate::schemas::reg_db::RegularDb;
 use crate::schemas::small_db::SmallDb;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use hmdb::log::Reader;
 use hmdb::test_utils::{test_db, test_dbs_folder};
+use rand::distributions::{Alphanumeric, Distribution, Standard};
+use rand::{thread_rng, Rng};
 use std::fs;
 use uuid::Uuid;
 
@@ -19,7 +20,32 @@ const INSERT_OPS: [u64; 5] = [
     INSERT_OP * 100,
 ];
 
-// creating db, importing db, inserting into db, deleting from db, compacting db
+pub fn gen_random_int_vec<T>(size: usize) -> Vec<T>
+where
+    Standard: Distribution<T>,
+{
+    let mut arr = Vec::new();
+    for _ in 0..size {
+        arr.push(gen_random_int::<T>())
+    }
+
+    arr
+}
+
+pub fn gen_random_int<T>() -> T
+where
+    Standard: Distribution<T>,
+{
+    thread_rng().gen()
+}
+
+pub fn gen_random_string() -> String {
+    thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .map(char::from)
+        .collect()
+}
 
 fn small_db_ops(c: &mut Criterion) {
     let mut dbs = vec![];
@@ -40,7 +66,7 @@ fn small_db_ops(c: &mut Criterion) {
             let db = SmallDb::init(&path).unwrap();
 
             let random_uuid = Uuid::new_v4();
-            let random_u32: u32 = schemas::gen_random_int();
+            let random_u32: u32 = gen_random_int();
 
             b.iter(|| {
                 db.table1
@@ -113,14 +139,14 @@ fn regular_db_ops(c: &mut Criterion) {
             dbs.push(path.clone());
             let db = RegularDb::init(&path).unwrap();
 
-            let random_u8: u8 = schemas::gen_random_int();
-            let random_i32: i32 = schemas::gen_random_int();
-            let random_u128: u128 = schemas::gen_random_int();
-            let random_isize: isize = schemas::gen_random_int();
-            let random_vec_u8: Vec<u8> = schemas::gen_random_int_vec(10);
+            let random_u8: u8 = gen_random_int();
+            let random_i32: i32 = gen_random_int();
+            let random_u128: u128 = gen_random_int();
+            let random_isize: isize = gen_random_int();
+            let random_vec_u8: Vec<u8> = gen_random_int_vec(10);
             let random_uuid = Uuid::new_v4();
-            let random_usize: usize = schemas::gen_random_int();
-            let random_string = schemas::gen_random_string();
+            let random_usize: usize = gen_random_int();
+            let random_string = gen_random_string();
 
             b.iter(|| {
                 db.table1
@@ -167,7 +193,7 @@ fn regular_db_ops(c: &mut Criterion) {
         access_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             let db = RegularDb::init(db_path).unwrap();
 
-            b.iter(|| db.table1.get(&schemas::gen_random_int()).unwrap());
+            b.iter(|| db.table1.get(&gen_random_int()).unwrap());
 
             fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
@@ -180,7 +206,7 @@ fn regular_db_ops(c: &mut Criterion) {
         remove_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             let db = RegularDb::init(db_path).unwrap();
 
-            b.iter(|| db.table1.delete(schemas::gen_random_int()).unwrap());
+            b.iter(|| db.table1.delete(gen_random_int()).unwrap());
 
             fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
@@ -208,8 +234,8 @@ fn large_db_ops(c: &mut Criterion) {
             dbs.push(path.clone());
             let db = LargeDb::init(&path).unwrap();
 
-            let random_u8: u8 = schemas::gen_random_int();
-            let random_string = schemas::gen_random_string();
+            let random_u8: u8 = gen_random_int();
+            let random_string = gen_random_string();
 
             b.iter(|| {
                 db.table1
@@ -352,7 +378,7 @@ fn large_db_ops(c: &mut Criterion) {
         access_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             let db = LargeDb::init(db_path).unwrap();
 
-            b.iter(|| db.table1.get(&schemas::gen_random_int()).unwrap());
+            b.iter(|| db.table1.get(&gen_random_int()).unwrap());
 
             fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
@@ -365,7 +391,7 @@ fn large_db_ops(c: &mut Criterion) {
         remove_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             let db = LargeDb::init(db_path).unwrap();
 
-            b.iter(|| db.table1.delete(schemas::gen_random_int()).unwrap());
+            b.iter(|| db.table1.delete(gen_random_int()).unwrap());
 
             fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
@@ -451,11 +477,6 @@ fn sled_ops(c: &mut Criterion) {
         fs::remove_dir_all(&test_dbs_folder()).unwrap();
     });
 }
-
-// + number of tables
-// + large amounts of data / small amounts
-// + startup time, random access time
-// + how does it compare to other databases
 
 criterion_group!(
     benches,
