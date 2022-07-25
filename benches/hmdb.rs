@@ -1,0 +1,467 @@
+use crate::schemas::gen_random_int_vec;
+use crate::schemas::large_db::LargeDb;
+use crate::schemas::reg_db::RegularDb;
+use crate::schemas::small_db::SmallDb;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use hmdb::log::Reader;
+use hmdb::test_utils::{test_db, test_dbs_folder};
+use std::fs;
+use uuid::Uuid;
+
+mod schemas;
+
+const INSERT_OP: u64 = 100;
+const INSERT_OPS: [u64; 5] = [
+    INSERT_OP,
+    INSERT_OP * 10,
+    INSERT_OP * 20,
+    INSERT_OP * 50,
+    INSERT_OP * 100,
+];
+
+// creating db, importing db, inserting into db, deleting from db, compacting db
+
+fn small_db_ops(c: &mut Criterion) {
+    let mut dbs = vec![];
+
+    c.bench_function("init empty small db", |b| {
+        let path = test_db();
+        SmallDb::init(&path).unwrap();
+
+        b.iter(|| SmallDb::init(black_box(&path)).unwrap());
+    });
+
+    let mut insert_db_group = c.benchmark_group("insert small db");
+    for size in INSERT_OPS {
+        insert_db_group.throughput(Throughput::Elements(size));
+        insert_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            let path = test_db();
+            dbs.push(path.clone());
+            let db = SmallDb::init(&path).unwrap();
+
+            let random_uuid = Uuid::new_v4();
+            let random_u32: u32 = schemas::gen_random_int();
+
+            b.iter(|| {
+                db.table1
+                    .insert(black_box(random_uuid.clone()), black_box(random_u32))
+                    .unwrap();
+            });
+
+            fs::remove_dir_all(&test_dbs_folder()).unwrap();
+        });
+    }
+    insert_db_group.finish();
+
+    let mut init_db_group = c.benchmark_group("init small db");
+    for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
+        init_db_group.throughput(Throughput::Elements(size));
+        init_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            b.iter(|| {
+                SmallDb::init(db_path).unwrap();
+            });
+
+            fs::remove_dir_all(&test_dbs_folder()).unwrap();
+        });
+    }
+    init_db_group.finish();
+
+    let mut access_db_group = c.benchmark_group("get small db");
+    for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
+        access_db_group.throughput(Throughput::Elements(size));
+        access_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            let db = SmallDb::init(db_path).unwrap();
+
+            b.iter(|| db.table1.get(&Uuid::new_v4()).unwrap());
+
+            fs::remove_dir_all(&test_dbs_folder()).unwrap();
+        });
+    }
+    access_db_group.finish();
+
+    let mut remove_db_group = c.benchmark_group("delete small db");
+    for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
+        remove_db_group.throughput(Throughput::Elements(size));
+        remove_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            let db = SmallDb::init(db_path).unwrap();
+
+            b.iter(|| db.table1.delete(Uuid::new_v4()).unwrap());
+
+            fs::remove_dir_all(&test_dbs_folder()).unwrap();
+        });
+    }
+    remove_db_group.finish();
+}
+
+fn regular_db_ops(c: &mut Criterion) {
+    let mut dbs = vec![];
+
+    c.bench_function("init empty regular db", |b| {
+        let path = test_db();
+        RegularDb::init(&path).unwrap();
+
+        b.iter(|| RegularDb::init(black_box(&path)).unwrap());
+
+        fs::remove_dir_all(&test_dbs_folder()).unwrap();
+    });
+
+    let mut insert_db_group = c.benchmark_group("insert regular db");
+    for size in INSERT_OPS {
+        insert_db_group.throughput(Throughput::Elements(size));
+        insert_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            let path = test_db();
+            dbs.push(path.clone());
+            let db = RegularDb::init(&path).unwrap();
+
+            let random_u8: u8 = schemas::gen_random_int();
+            let random_i32: i32 = schemas::gen_random_int();
+            let random_u128: u128 = schemas::gen_random_int();
+            let random_isize: isize = schemas::gen_random_int();
+            let random_vec_u8: Vec<u8> = schemas::gen_random_int_vec(10);
+            let random_uuid = Uuid::new_v4();
+            let random_usize: usize = schemas::gen_random_int();
+            let random_string = schemas::gen_random_string();
+
+            b.iter(|| {
+                db.table1
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table2
+                    .insert(black_box(random_i32), black_box(random_u8))
+                    .unwrap();
+                db.table3
+                    .insert(black_box(random_u128), black_box(random_string.clone()))
+                    .unwrap();
+                db.table4
+                    .insert(black_box(random_isize), black_box(random_u128))
+                    .unwrap();
+                db.table5
+                    .insert(black_box(random_vec_u8.clone()), black_box(random_uuid))
+                    .unwrap();
+                db.table6
+                    .insert(black_box(random_uuid), black_box(random_usize))
+                    .unwrap();
+            });
+
+            fs::remove_dir_all(&test_dbs_folder()).unwrap();
+        });
+    }
+    insert_db_group.finish();
+
+    let mut init_db_group = c.benchmark_group("init regular db");
+    for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
+        init_db_group.throughput(Throughput::Elements(size));
+        init_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            b.iter(|| {
+                RegularDb::init(db_path).unwrap();
+            });
+
+            fs::remove_dir_all(&test_dbs_folder()).unwrap();
+        });
+    }
+    init_db_group.finish();
+
+    let mut access_db_group = c.benchmark_group("get regular db");
+    for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
+        access_db_group.throughput(Throughput::Elements(size));
+        access_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            let db = RegularDb::init(db_path).unwrap();
+
+            b.iter(|| db.table1.get(&schemas::gen_random_int()).unwrap());
+
+            fs::remove_dir_all(&test_dbs_folder()).unwrap();
+        });
+    }
+    access_db_group.finish();
+
+    let mut remove_db_group = c.benchmark_group("delete regular db");
+    for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
+        remove_db_group.throughput(Throughput::Elements(size));
+        remove_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            let db = RegularDb::init(db_path).unwrap();
+
+            b.iter(|| db.table1.delete(schemas::gen_random_int()).unwrap());
+
+            fs::remove_dir_all(&test_dbs_folder()).unwrap();
+        });
+    }
+    remove_db_group.finish();
+}
+
+fn large_db_ops(c: &mut Criterion) {
+    let mut dbs = vec![];
+
+    c.bench_function("init empty large db", |b| {
+        let path = test_db();
+        LargeDb::init(&path).unwrap();
+
+        b.iter(|| LargeDb::init(black_box(&path)).unwrap());
+
+        fs::remove_dir_all(&test_dbs_folder()).unwrap();
+    });
+
+    let mut insert_db_group = c.benchmark_group("insert large db");
+    for size in INSERT_OPS {
+        insert_db_group.throughput(Throughput::Elements(size));
+        insert_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            let path = test_db();
+            dbs.push(path.clone());
+            let db = LargeDb::init(&path).unwrap();
+
+            let random_u8: u8 = schemas::gen_random_int();
+            let random_string = schemas::gen_random_string();
+
+            b.iter(|| {
+                db.table1
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table2
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table3
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table4
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table5
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table6
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table7
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table8
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table9
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table11
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table12
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table13
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table14
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table15
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table16
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table17
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table18
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table19
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table21
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table22
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table23
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table24
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table25
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table26
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table27
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table28
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table29
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table30
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table31
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table32
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table33
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table34
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table35
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table36
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table37
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table38
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table39
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+                db.table40
+                    .insert(black_box(random_u8), black_box(random_string.clone()))
+                    .unwrap();
+            });
+
+            fs::remove_dir_all(&test_dbs_folder()).unwrap();
+        });
+    }
+    insert_db_group.finish();
+
+    let mut init_db_group = c.benchmark_group("init regular db");
+    for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
+        init_db_group.throughput(Throughput::Elements(size));
+        init_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            b.iter(|| {
+                LargeDb::init(db_path).unwrap();
+            });
+
+            fs::remove_dir_all(&test_dbs_folder()).unwrap();
+        });
+    }
+    init_db_group.finish();
+
+    let mut access_db_group = c.benchmark_group("get large db");
+    for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
+        access_db_group.throughput(Throughput::Elements(size));
+        access_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            let db = LargeDb::init(db_path).unwrap();
+
+            b.iter(|| db.table1.get(&schemas::gen_random_int()).unwrap());
+
+            fs::remove_dir_all(&test_dbs_folder()).unwrap();
+        });
+    }
+    access_db_group.finish();
+
+    let mut remove_db_group = c.benchmark_group("delete large db");
+    for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
+        remove_db_group.throughput(Throughput::Elements(size));
+        remove_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            let db = LargeDb::init(db_path).unwrap();
+
+            b.iter(|| db.table1.delete(schemas::gen_random_int()).unwrap());
+
+            fs::remove_dir_all(&test_dbs_folder()).unwrap();
+        });
+    }
+    remove_db_group.finish();
+}
+
+fn sled_ops(c: &mut Criterion) {
+    let mut dbs = vec![];
+
+    c.bench_function("init sled empty db", |b| {
+        let path = test_db();
+        sled::open(&path).unwrap();
+
+        b.iter(|| sled::open(&path).unwrap());
+
+        fs::remove_dir_all(&test_dbs_folder()).unwrap();
+    });
+
+    c.bench_function("insert sled db", |b| {
+        let path = test_db();
+        dbs.push(path.clone());
+        let db = sled::open(&path).unwrap();
+
+        b.iter(|| {
+            db.insert(gen_random_int_vec::<u8>(100), vec![]).unwrap();
+        });
+
+        fs::remove_dir_all(&test_dbs_folder()).unwrap();
+    });
+
+    let mut sled_insert_db_group = c.benchmark_group("get sled db");
+    for size in INSERT_OPS {
+        sled_insert_db_group.throughput(Throughput::Elements(size));
+        sled_insert_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            let path = test_db();
+            let db = sled::open(&path).unwrap();
+
+            b.iter(|| {
+                db.get(gen_random_int_vec::<u8>(100)).unwrap();
+            });
+
+            fs::remove_dir_all(&test_dbs_folder()).unwrap();
+        });
+    }
+    sled_insert_db_group.finish();
+
+    let mut insert_db_group = c.benchmark_group("insert small db");
+    for size in INSERT_OPS {
+        insert_db_group.throughput(Throughput::Elements(size));
+        insert_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            let path = test_db();
+            let db = sled::open(&path).unwrap();
+
+            b.iter(|| {
+                db.get(gen_random_int_vec::<u8>(100)).unwrap();
+            });
+
+            fs::remove_dir_all(&test_dbs_folder()).unwrap();
+        });
+    }
+    insert_db_group.finish();
+
+    c.bench_function("get sled db", |b| {
+        let path = test_db();
+        let db = sled::open(&path).unwrap();
+
+        b.iter(|| {
+            db.get(gen_random_int_vec::<u8>(100)).unwrap();
+        });
+
+        fs::remove_dir_all(&test_dbs_folder()).unwrap();
+    });
+
+    c.bench_function("remove sled db", |b| {
+        let path = test_db();
+        let db = sled::open(&path).unwrap();
+
+        b.iter(|| {
+            db.remove(gen_random_int_vec::<u8>(100)).unwrap();
+        });
+
+        fs::remove_dir_all(&test_dbs_folder()).unwrap();
+    });
+}
+
+// + number of tables
+// + large amounts of data / small amounts
+// + startup time, random access time
+// + how does it compare to other databases
+
+criterion_group!(
+    benches,
+    large_db_ops,
+    regular_db_ops,
+    small_db_ops,
+    sled_ops
+);
+criterion_main!(benches);

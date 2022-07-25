@@ -186,6 +186,7 @@ macro_rules! schema {
 pub mod errors;
 pub mod log;
 pub mod table;
+pub mod test_utils;
 pub mod transaction;
 
 pub trait Key: Clone + Eq + Hash {}

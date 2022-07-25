@@ -1,18 +1,9 @@
 #[cfg(test)]
 pub mod schema {
+    use hmdb::test_utils::test_db;
     use hmdb::transaction::Transaction;
     use std::fs;
-    use std::path::PathBuf;
     use std::time::{Duration, Instant};
-    use uuid::Uuid;
-
-    // Could make a type which holds a db and then on drop will clean up the db file.
-    fn test_db() -> String {
-        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("target");
-        path.push(Uuid::new_v4().to_string());
-        path.to_str().unwrap().into()
-    }
 
     #[test]
     fn start_empty() {

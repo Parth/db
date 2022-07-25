@@ -1,14 +1,11 @@
 #[cfg(test)]
 pub mod tests {
+    use hmdb::schema;
+    use hmdb::test_utils::test_db;
+    use hmdb::transaction::Transaction;
+    use serde::{Deserialize, Serialize};
     use std::fs;
     use std::fs::File;
-    use std::path::PathBuf;
-
-    use serde::{Deserialize, Serialize};
-    use uuid::Uuid;
-
-    use hmdb::schema;
-    use hmdb::transaction::Transaction;
 
     const SCHEMA_NAME: &str = "schema_tests2__tests__Db";
 
@@ -27,13 +24,6 @@ pub mod tests {
             table3: <String, Vec<u8>>,
             table4: <u8, Value>
         }
-    }
-
-    fn test_db() -> String {
-        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("target");
-        path.push(Uuid::new_v4().to_string());
-        path.to_str().unwrap().into()
     }
 
     #[test]
@@ -230,13 +220,14 @@ pub mod tests {
         db.table1.insert(Test {}, "test".to_string()).unwrap();
         db.table1.insert(Test {}, "test".to_string()).unwrap();
 
-        let size_before = File::open(&format!("{}/{}", db_path, SCHEMA_NAME))
+        let db_schema_path = db_path.join(SCHEMA_NAME);
+        let size_before = File::open(&db_schema_path)
             .unwrap()
             .metadata()
             .unwrap()
             .len();
         db.compact_log().unwrap();
-        let size_after = File::open(&format!("{}/{}", db_path, SCHEMA_NAME))
+        let size_after = File::open(&db_schema_path)
             .unwrap()
             .metadata()
             .unwrap()
@@ -264,13 +255,14 @@ pub mod tests {
         db.table3.insert("b".to_string(), vec![1]).unwrap();
         db.table3.insert("b".to_string(), vec![1, 3]).unwrap();
 
-        let size_before = File::open(&format!("{}/{}", db_path, SCHEMA_NAME))
+        let db_schema_path = db_path.join(SCHEMA_NAME);
+        let size_before = File::open(&db_schema_path)
             .unwrap()
             .metadata()
             .unwrap()
             .len();
         db.compact_log().unwrap();
-        let size_after = File::open(&format!("{}/{}", db_path, SCHEMA_NAME))
+        let size_after = File::open(&db_schema_path)
             .unwrap()
             .metadata()
             .unwrap()
@@ -307,13 +299,14 @@ pub mod tests {
             )
             .unwrap();
 
-        let size_before = File::open(&format!("{}/{}", db_path, SCHEMA_NAME))
+        let db_schema_path = db_path.join(SCHEMA_NAME);
+        let size_before = File::open(&db_schema_path)
             .unwrap()
             .metadata()
             .unwrap()
             .len();
         db.compact_log().unwrap();
-        let size_after = File::open(&format!("{}/{}", db_path, SCHEMA_NAME))
+        let size_after = File::open(&db_schema_path)
             .unwrap()
             .metadata()
             .unwrap()
