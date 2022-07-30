@@ -429,7 +429,7 @@ fn sled_ops(c: &mut Criterion) {
     }
     access_db_group.finish();
 
-    c.bench_function("remove sled db", |b| {
+    c.bench_function("delete sled db", |b| {
         let path = test_db();
         let db = sled::open(&path).unwrap();
 
