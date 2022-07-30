@@ -60,7 +60,7 @@ fn small_db_ops(c: &mut Criterion) {
     let mut insert_db_group = c.benchmark_group("insert small db");
     for size in INSERT_OPS {
         insert_db_group.throughput(Throughput::Elements(size));
-        insert_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+        insert_db_group.bench_function(BenchmarkId::from_parameter(size), |b| {
             let path = test_db();
             dbs.push(path.clone());
             let db = SmallDb::init(&path).unwrap();
@@ -82,7 +82,7 @@ fn small_db_ops(c: &mut Criterion) {
     let mut init_db_group = c.benchmark_group("init small db");
     for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
         init_db_group.throughput(Throughput::Elements(size));
-        init_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+        init_db_group.bench_function(BenchmarkId::from_parameter(size), |b| {
             b.iter(|| {
                 SmallDb::init(black_box(db_path)).unwrap();
             });
@@ -95,7 +95,7 @@ fn small_db_ops(c: &mut Criterion) {
     let mut access_db_group = c.benchmark_group("get small db");
     for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
         access_db_group.throughput(Throughput::Elements(size));
-        access_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+        access_db_group.bench_function(BenchmarkId::from_parameter(size), |b| {
             let db = SmallDb::init(db_path).unwrap();
 
             b.iter(|| db.table1.get(black_box(&Uuid::new_v4())).unwrap());
@@ -105,18 +105,13 @@ fn small_db_ops(c: &mut Criterion) {
     }
     access_db_group.finish();
 
-    let mut remove_db_group = c.benchmark_group("delete small db");
-    for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
-        remove_db_group.throughput(Throughput::Elements(size));
-        remove_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
-            let db = SmallDb::init(db_path).unwrap();
+    c.bench_function("delete small db", |b| {
+        let db = SmallDb::init(db_path).unwrap();
 
-            b.iter(|| db.table1.delete(black_box(Uuid::new_v4())).unwrap());
+        b.iter(|| db.table1.delete(black_box(Uuid::new_v4())).unwrap());
 
-            fs::remove_dir_all(&test_dbs_folder()).unwrap();
-        });
-    }
-    remove_db_group.finish();
+        fs::remove_dir_all(&test_dbs_folder()).unwrap();
+    });
 }
 
 fn regular_db_ops(c: &mut Criterion) {
@@ -134,7 +129,7 @@ fn regular_db_ops(c: &mut Criterion) {
     let mut insert_db_group = c.benchmark_group("insert regular db");
     for size in INSERT_OPS {
         insert_db_group.throughput(Throughput::Elements(size));
-        insert_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+        insert_db_group.bench_function(BenchmarkId::from_parameter(size), |b| {
             let path = test_db();
             dbs.push(path.clone());
             let db = RegularDb::init(&path).unwrap();
@@ -177,7 +172,7 @@ fn regular_db_ops(c: &mut Criterion) {
     let mut init_db_group = c.benchmark_group("init regular db");
     for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
         init_db_group.throughput(Throughput::Elements(size));
-        init_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+        init_db_group.bench_function(BenchmarkId::from_parameter(size), |b| {
             b.iter(|| {
                 RegularDb::init(black_box(db_path)).unwrap();
             });
@@ -190,7 +185,7 @@ fn regular_db_ops(c: &mut Criterion) {
     let mut access_db_group = c.benchmark_group("get regular db");
     for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
         access_db_group.throughput(Throughput::Elements(size));
-        access_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+        access_db_group.bench_function(BenchmarkId::from_parameter(size), |b| {
             let db = RegularDb::init(db_path).unwrap();
 
             b.iter(|| db.table1.get(&gen_random_int()).unwrap());
@@ -200,18 +195,13 @@ fn regular_db_ops(c: &mut Criterion) {
     }
     access_db_group.finish();
 
-    let mut remove_db_group = c.benchmark_group("delete regular db");
-    for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
-        remove_db_group.throughput(Throughput::Elements(size));
-        remove_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
-            let db = RegularDb::init(db_path).unwrap();
+    c.bench_function("delete regular db", |b| {
+        let db = RegularDb::init(db_path).unwrap();
 
-            b.iter(|| db.table1.delete(black_box(gen_random_int())).unwrap());
+        b.iter(|| db.table1.delete(black_box(gen_random_int())).unwrap());
 
-            fs::remove_dir_all(&test_dbs_folder()).unwrap();
-        });
-    }
-    remove_db_group.finish();
+        fs::remove_dir_all(&test_dbs_folder()).unwrap();
+    });
 }
 
 fn large_db_ops(c: &mut Criterion) {
@@ -229,7 +219,7 @@ fn large_db_ops(c: &mut Criterion) {
     let mut insert_db_group = c.benchmark_group("insert large db");
     for size in INSERT_OPS {
         insert_db_group.throughput(Throughput::Elements(size));
-        insert_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+        insert_db_group.bench_function(BenchmarkId::from_parameter(size), |b| {
             let path = test_db();
             dbs.push(path.clone());
             let db = LargeDb::init(&path).unwrap();
@@ -362,7 +352,7 @@ fn large_db_ops(c: &mut Criterion) {
     let mut init_db_group = c.benchmark_group("init regular db");
     for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
         init_db_group.throughput(Throughput::Elements(size));
-        init_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+        init_db_group.bench_function(BenchmarkId::from_parameter(size),|b| {
             b.iter(|| {
                 LargeDb::init(black_box(db_path)).unwrap();
             });
@@ -375,7 +365,7 @@ fn large_db_ops(c: &mut Criterion) {
     let mut access_db_group = c.benchmark_group("get large db");
     for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
         access_db_group.throughput(Throughput::Elements(size));
-        access_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+        access_db_group.bench_function(BenchmarkId::from_parameter(size), |b| {
             let db = LargeDb::init(db_path).unwrap();
 
             b.iter(|| db.table1.get(black_box(&gen_random_int())).unwrap());
@@ -385,18 +375,13 @@ fn large_db_ops(c: &mut Criterion) {
     }
     access_db_group.finish();
 
-    let mut remove_db_group = c.benchmark_group("delete large db");
-    for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
-        remove_db_group.throughput(Throughput::Elements(size));
-        remove_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
-            let db = LargeDb::init(db_path).unwrap();
+    c.bench_function("delete large db", |b| {
+        let db = LargeDb::init(db_path).unwrap();
 
-            b.iter(|| db.table1.delete(black_box(gen_random_int())).unwrap());
+        b.iter(|| db.table1.delete(black_box(gen_random_int())).unwrap());
 
-            fs::remove_dir_all(&test_dbs_folder()).unwrap();
-        });
-    }
-    remove_db_group.finish();
+        fs::remove_dir_all(&test_dbs_folder()).unwrap();
+    });
 }
 
 fn sled_ops(c: &mut Criterion) {
@@ -411,44 +396,17 @@ fn sled_ops(c: &mut Criterion) {
         fs::remove_dir_all(&test_dbs_folder()).unwrap();
     });
 
-    c.bench_function("insert sled db", |b| {
-        let path = test_db();
-        dbs.push(path.clone());
-        let db = sled::open(&path).unwrap();
-
-        b.iter(|| {
-            db.insert(black_box(gen_random_int_vec::<u8>(100)), black_box(vec![]))
-                .unwrap();
-        });
-
-        fs::remove_dir_all(&test_dbs_folder()).unwrap();
-    });
-
-    let mut sled_insert_db_group = c.benchmark_group("get sled db");
-    for size in INSERT_OPS {
-        sled_insert_db_group.throughput(Throughput::Elements(size));
-        sled_insert_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
-            let path = test_db();
-            let db = sled::open(&path).unwrap();
-
-            b.iter(|| {
-                db.get(black_box(gen_random_int_vec::<u8>(100))).unwrap();
-            });
-
-            fs::remove_dir_all(&test_dbs_folder()).unwrap();
-        });
-    }
-    sled_insert_db_group.finish();
-
-    let mut insert_db_group = c.benchmark_group("insert small db");
+    let mut insert_db_group = c.benchmark_group("insert sled db");
     for size in INSERT_OPS {
         insert_db_group.throughput(Throughput::Elements(size));
-        insert_db_group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+        insert_db_group.bench_function(BenchmarkId::from_parameter(size), |b| {
             let path = test_db();
+            dbs.push(path.clone());
             let db = sled::open(&path).unwrap();
 
             b.iter(|| {
-                db.get(black_box(gen_random_int_vec::<u8>(100))).unwrap();
+                db.insert(black_box(gen_random_int_vec::<u8>(100)), black_box(vec![]))
+                    .unwrap();
             });
 
             fs::remove_dir_all(&test_dbs_folder()).unwrap();
@@ -456,16 +414,20 @@ fn sled_ops(c: &mut Criterion) {
     }
     insert_db_group.finish();
 
-    c.bench_function("get sled db", |b| {
-        let path = test_db();
-        let db = sled::open(&path).unwrap();
+    let mut access_db_group = c.benchmark_group("get sled db");
+    for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
+        access_db_group.throughput(Throughput::Elements(size));
+        access_db_group.bench_function(BenchmarkId::from_parameter(size), |b| {
+            let db = sled::open(&db_path).unwrap();
 
-        b.iter(|| {
-            db.get(black_box(gen_random_int_vec::<u8>(100))).unwrap();
+            b.iter(|| {
+                db.get(black_box(gen_random_int_vec::<u8>(100))).unwrap();
+            });
+
+            fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
-
-        fs::remove_dir_all(&test_dbs_folder()).unwrap();
-    });
+    }
+    access_db_group.finish();
 
     c.bench_function("remove sled db", |b| {
         let path = test_db();
