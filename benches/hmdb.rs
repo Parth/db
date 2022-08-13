@@ -70,11 +70,9 @@ fn small_db_ops(c: &mut Criterion) {
 
             b.iter(|| {
                 db.table1
-                    .insert(black_box(random_uuid.clone()), black_box(random_u32))
+                    .insert(black_box(random_uuid), black_box(random_u32))
                     .unwrap();
             });
-
-            fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
     }
     insert_db_group.finish();
@@ -86,8 +84,6 @@ fn small_db_ops(c: &mut Criterion) {
             b.iter(|| {
                 SmallDb::init(black_box(db_path)).unwrap();
             });
-
-            fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
     }
     init_db_group.finish();
@@ -99,14 +95,12 @@ fn small_db_ops(c: &mut Criterion) {
             let db = SmallDb::init(db_path).unwrap();
 
             b.iter(|| db.table1.get(black_box(&Uuid::new_v4())).unwrap());
-
-            fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
     }
     access_db_group.finish();
 
     c.bench_function("delete small db", |b| {
-        let db = SmallDb::init(db_path).unwrap();
+        let db = SmallDb::init(test_db()).unwrap();
 
         b.iter(|| db.table1.delete(black_box(Uuid::new_v4())).unwrap());
 
@@ -163,8 +157,6 @@ fn regular_db_ops(c: &mut Criterion) {
                     .insert(black_box(random_uuid), black_box(random_usize))
                     .unwrap();
             });
-
-            fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
     }
     insert_db_group.finish();
@@ -176,8 +168,6 @@ fn regular_db_ops(c: &mut Criterion) {
             b.iter(|| {
                 RegularDb::init(black_box(db_path)).unwrap();
             });
-
-            fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
     }
     init_db_group.finish();
@@ -189,14 +179,12 @@ fn regular_db_ops(c: &mut Criterion) {
             let db = RegularDb::init(db_path).unwrap();
 
             b.iter(|| db.table1.get(&gen_random_int()).unwrap());
-
-            fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
     }
     access_db_group.finish();
 
     c.bench_function("delete regular db", |b| {
-        let db = RegularDb::init(db_path).unwrap();
+        let db = RegularDb::init(test_db()).unwrap();
 
         b.iter(|| db.table1.delete(black_box(gen_random_int())).unwrap());
 
@@ -343,21 +331,17 @@ fn large_db_ops(c: &mut Criterion) {
                     .insert(black_box(random_u8), black_box(random_string.clone()))
                     .unwrap();
             });
-
-            fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
     }
     insert_db_group.finish();
 
-    let mut init_db_group = c.benchmark_group("init regular db");
+    let mut init_db_group = c.benchmark_group("init large db");
     for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
         init_db_group.throughput(Throughput::Elements(size));
-        init_db_group.bench_function(BenchmarkId::from_parameter(size),|b| {
+        init_db_group.bench_function(BenchmarkId::from_parameter(size), |b| {
             b.iter(|| {
                 LargeDb::init(black_box(db_path)).unwrap();
             });
-
-            fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
     }
     init_db_group.finish();
@@ -369,14 +353,12 @@ fn large_db_ops(c: &mut Criterion) {
             let db = LargeDb::init(db_path).unwrap();
 
             b.iter(|| db.table1.get(black_box(&gen_random_int())).unwrap());
-
-            fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
     }
     access_db_group.finish();
 
     c.bench_function("delete large db", |b| {
-        let db = LargeDb::init(db_path).unwrap();
+        let db = LargeDb::init(test_db()).unwrap();
 
         b.iter(|| db.table1.delete(black_box(gen_random_int())).unwrap());
 
@@ -408,11 +390,20 @@ fn sled_ops(c: &mut Criterion) {
                 db.insert(black_box(gen_random_int_vec::<u8>(100)), black_box(vec![]))
                     .unwrap();
             });
-
-            fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
     }
     insert_db_group.finish();
+
+    let mut init_db_group = c.benchmark_group("init sled db");
+    for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
+        init_db_group.throughput(Throughput::Elements(size));
+        init_db_group.bench_function(BenchmarkId::from_parameter(size), |b| {
+            b.iter(|| {
+                sled::open(black_box(&db_path)).unwrap();
+            });
+        });
+    }
+    init_db_group.finish();
 
     let mut access_db_group = c.benchmark_group("get sled db");
     for (db_path, size) in dbs.iter().zip(INSERT_OPS) {
@@ -423,8 +414,6 @@ fn sled_ops(c: &mut Criterion) {
             b.iter(|| {
                 db.get(black_box(gen_random_int_vec::<u8>(100))).unwrap();
             });
-
-            fs::remove_dir_all(&test_dbs_folder()).unwrap();
         });
     }
     access_db_group.finish();

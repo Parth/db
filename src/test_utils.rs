@@ -2,10 +2,7 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 pub fn test_dbs_folder() -> PathBuf {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push("target");
-    path.push("benches");
-    path
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/tmp")
 }
 
 pub fn test_db() -> PathBuf {
