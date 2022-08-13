@@ -119,9 +119,9 @@ macro_rules! schema {
 
         impl Reader<helper_disk::$schema_name, $schema_name> for $schema_name {
             fn init<P: AsRef<Path>>(path: P) -> Result<Self, $crate::errors::Error> {
-                let mut file = Self::open_file(path)?;
+                let (mut file, schema_path) = Self::open_log(&path)?;
                 let (log, incomplete_write) = Self::parse_log(&mut file)?;
-                let writer = Writer::init(file);
+                let writer = Writer::init(file, schema_path);
                 $(let mut $table_name: HashMap<$table_key, $table_value> = HashMap::new();)*
                 for entry in log {
                     match entry {
@@ -143,6 +143,21 @@ macro_rules! schema {
 
             fn incomplete_write(&self) -> bool {
                 self.incomplete_write
+            }
+
+            fn compact_log(&self) -> Result<(), $crate::errors::Error> {
+                $(let ($table_name, writer) = self.$table_name.begin_transaction()?;)*
+
+                let mut data = vec![];
+                $(
+                    for (key, val) in $table_name.get_all() {
+                        data.push(helper_log::$table_name::insert(key, val));
+                    }
+                )*
+
+                writer.compact_log(data)?;
+
+                Ok(())
             }
         }
 
@@ -171,6 +186,7 @@ macro_rules! schema {
 pub mod errors;
 pub mod log;
 pub mod table;
+pub mod test_utils;
 pub mod transaction;
 
 pub trait Key: Clone + Eq + Hash {}

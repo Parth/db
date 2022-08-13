@@ -1,13 +1,13 @@
 #[cfg(test)]
 pub mod tests {
-    use std::fs;
-    use std::path::PathBuf;
-
-    use serde::{Deserialize, Serialize};
-    use uuid::Uuid;
-
     use hmdb::schema;
+    use hmdb::test_utils::test_db;
     use hmdb::transaction::Transaction;
+    use serde::{Deserialize, Serialize};
+    use std::fs;
+    use std::fs::File;
+
+    const SCHEMA_NAME: &str = "schema_tests2__tests__Db";
 
     #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
     pub struct Test;
@@ -24,13 +24,6 @@ pub mod tests {
             table3: <String, Vec<u8>>,
             table4: <u8, Value>
         }
-    }
-
-    fn test_db() -> String {
-        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("target");
-        path.push(Uuid::new_v4().to_string());
-        path.to_str().unwrap().into()
     }
 
     #[test]
@@ -212,6 +205,115 @@ pub mod tests {
 
         let db = Db::init(db_path).unwrap();
         assert!(db.table3.get_all().unwrap().is_empty());
+        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+    }
+
+    #[test]
+    fn test_log_compaction_1() {
+        let db_path = &test_db();
+
+        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        let db = Db::init(db_path).unwrap();
+
+        db.table1.insert(Test {}, "test".to_string()).unwrap();
+        db.table1.insert(Test {}, "test".to_string()).unwrap();
+        db.table1.insert(Test {}, "test".to_string()).unwrap();
+        db.table1.insert(Test {}, "test".to_string()).unwrap();
+
+        let db_schema_path = db_path.join(SCHEMA_NAME);
+        let size_before = File::open(&db_schema_path)
+            .unwrap()
+            .metadata()
+            .unwrap()
+            .len();
+        db.compact_log().unwrap();
+        let size_after = File::open(&db_schema_path)
+            .unwrap()
+            .metadata()
+            .unwrap()
+            .len();
+
+        assert!(size_before > size_after);
+
+        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+    }
+
+    #[test]
+    fn test_log_compaction_2() {
+        let db_path = &test_db();
+
+        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        let db = Db::init(db_path).unwrap();
+
+        db.table2.insert(Test {}, 123).unwrap();
+        db.table2.insert(Test {}, 124).unwrap();
+        db.table2.insert(Test {}, 125).unwrap();
+        db.table2.insert(Test {}, 126).unwrap();
+
+        db.table3.insert("a".to_string(), vec![3, 2, 1]).unwrap();
+        db.table3.insert("a".to_string(), vec![1, 2, 3]).unwrap();
+        db.table3.insert("b".to_string(), vec![1]).unwrap();
+        db.table3.insert("b".to_string(), vec![1, 3]).unwrap();
+
+        let db_schema_path = db_path.join(SCHEMA_NAME);
+        let size_before = File::open(&db_schema_path)
+            .unwrap()
+            .metadata()
+            .unwrap()
+            .len();
+        db.compact_log().unwrap();
+        let size_after = File::open(&db_schema_path)
+            .unwrap()
+            .metadata()
+            .unwrap()
+            .len();
+
+        assert!(size_before > size_after);
+
+        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+    }
+
+    #[test]
+    fn test_log_compaction_3() {
+        let db_path = &test_db();
+
+        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        let db = Db::init(db_path).unwrap();
+
+        db.table4
+            .insert(
+                1,
+                Value {
+                    field: vec![1, 2, 3],
+                    field2: vec![4, 5, 6],
+                },
+            )
+            .unwrap();
+        db.table4
+            .insert(
+                1,
+                Value {
+                    field: vec![6, 5, 4],
+                    field2: vec![3, 2, 1],
+                },
+            )
+            .unwrap();
+
+        let db_schema_path = db_path.join(SCHEMA_NAME);
+        let size_before = File::open(&db_schema_path)
+            .unwrap()
+            .metadata()
+            .unwrap()
+            .len();
+        db.compact_log().unwrap();
+        let size_after = File::open(&db_schema_path)
+            .unwrap()
+            .metadata()
+            .unwrap()
+            .len();
+
+        assert!(size_before > size_after);
+
         fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
     }
 }
