@@ -64,9 +64,10 @@ macro_rules! schema {
     }) => {
 
         use std::collections::HashMap;
-        use $crate::log::{TableEvent, Reader, SchemaEvent, Writer};
+        use $crate::log::{TableEvent, Reader, SchemaEvent, Writer, LogCompacter};
         use $crate::table::Table;
         use std::path::Path;
+        use std::thread;
 
         #[derive(Clone, Debug)]
         pub struct $schema_name {
@@ -119,9 +120,9 @@ macro_rules! schema {
 
         impl Reader<helper_disk::$schema_name, $schema_name> for $schema_name {
             fn init<P: AsRef<Path>>(path: P) -> Result<Self, $crate::errors::Error> {
-                let mut file = Self::open_file(path)?;
+                let (mut file, schema_path) = Self::open_log(&path)?;
                 let (log, incomplete_write) = Self::parse_log(&mut file)?;
-                let writer = Writer::init(file);
+                let writer = Writer::init(file, schema_path);
                 $(let mut $table_name: HashMap<$table_key, $table_value> = HashMap::new();)*
                 for entry in log {
                     match entry {
@@ -143,6 +144,45 @@ macro_rules! schema {
 
             fn incomplete_write(&self) -> bool {
                 self.incomplete_write
+            }
+        }
+
+        impl LogCompacter for $schema_name {
+            fn compact_log(&self) -> Result<(), $crate::errors::Error> {
+                $(let ($table_name, writer) = self.$table_name.begin_transaction()?;)*
+
+                let mut data = vec![];
+                $(
+                    for (key, val) in $table_name.get_all() {
+                        data.push(helper_log::$table_name::insert(key, val));
+                    }
+                )*
+
+                writer.compact_log(data).unwrap();
+
+                Ok(())
+            }
+
+            fn compact_log_async(&self, time_between_compacts: Duration) -> Result<(), $crate::errors::Error> {
+                $(let $table_name = self.$table_name.clone();)*
+
+                thread::spawn(move || {
+                    loop {
+                        $(let ($table_name, writer) = $table_name.begin_transaction().unwrap();)*
+
+                        let mut data = vec![];
+                        $(
+                            for (key, val) in $table_name.get_all() {
+                                data.push(helper_log::$table_name::insert(key, val));
+                            }
+                        )*
+
+                        writer.compact_log(data).unwrap();
+                        thread::sleep(time_between_compacts)
+                    }
+                });
+
+                Ok(())
             }
         }
 
@@ -179,8 +219,6 @@ impl<K> Key for K where K: Clone + Eq + Hash {}
 impl<V> Value for V where V: Clone {}
 
 // TODO: Document all the traits
-
-// TODO: Log compaction
 
 // TODO: Consider taking a `Path` instead of an str
 
