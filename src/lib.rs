@@ -64,7 +64,7 @@ macro_rules! schema {
     }) => {
 
         use std::collections::HashMap;
-        use $crate::log::{TableEvent, Reader, SchemaEvent, Writer};
+        use $crate::log::{TableEvent, Reader, SchemaEvent, Writer, LogCompacter};
         use $crate::table::Table;
         use std::path::Path;
 
@@ -144,7 +144,9 @@ macro_rules! schema {
             fn incomplete_write(&self) -> bool {
                 self.incomplete_write
             }
+        }
 
+        impl LogCompacter for $schema_name {
             fn compact_log(&self) -> Result<(), $crate::errors::Error> {
                 $(let ($table_name, writer) = self.$table_name.begin_transaction()?;)*
 

@@ -104,7 +104,9 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
     fn incomplete_write(&self) -> bool;
 
     fn init<P: AsRef<Path>>(path: P) -> Result<InMemory, Error>;
+}
 
+pub trait LogCompacter {
     fn compact_log(&self) -> Result<(), Error>;
 }
 
