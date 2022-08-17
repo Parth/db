@@ -195,8 +195,6 @@ impl<V> Value for V where V: Clone {}
 
 // TODO: Document all the traits
 
-// TODO: Log compaction
-
 // TODO: Consider taking a `Path` instead of an str
 
 // TODO: The experience of using `String` as your key is somewhat bad, it complains you provided an
