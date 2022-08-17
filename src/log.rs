@@ -139,7 +139,7 @@ impl Writer {
     }
 
     pub fn compact_log<S: Serialize>(&self, data: Vec<S>) -> Result<(), Error> {
-        let new_db_path = self.path.with_extension(".tmp");
+        let new_db_path = self.path.with_extension(".log_compaction");
         let mut new_db = open_file(&new_db_path)?;
 
         Self::write_to_log(&mut new_db, &LogItems::Batch(data))?;
@@ -147,7 +147,7 @@ impl Writer {
         fs::rename(new_db_path, self.path.as_ref()).map_err(|err| {
             Error::OsError(
                 format!(
-                    "Failed to atomically set compacted schema file, error: {:?}.",
+                    "Failed to atomically overwrite old log with compacted log, error: {:?}.",
                     err
                 ),
                 err,
