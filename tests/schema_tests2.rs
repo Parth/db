@@ -215,17 +215,4 @@ pub mod tests {
         assert!(db.table3.get_all().unwrap().is_empty());
         fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
     }
-
-    #[test]
-    fn test_compact_async() {
-        let db_path = &test_db();
-
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
-        let db = Db::init(db_path).unwrap();
-        db.table1.insert(Test {}, "test".to_string()).unwrap();
-
-        db.compact_log_async(Duration::MAX).unwrap();
-
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
-    }
 }
