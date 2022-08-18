@@ -1,12 +1,13 @@
-use std::fs;
 use crate::errors::Error;
 use crate::{Key, Value};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
 use std::time::Duration;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -32,8 +33,8 @@ pub enum TableEvent<K: Key, V: Value> {
 
 pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
     fn open_log<P>(dir: P) -> Result<(File, PathBuf), Error>
-        where
-            P: AsRef<Path>,
+    where
+        P: AsRef<Path>,
     {
         let mut path = PathBuf::new();
         path.push(dir);
@@ -110,7 +111,10 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
 pub trait LogCompacter {
     fn compact_log(&self) -> Result<(), Error>;
 
-    fn compact_log_async(&self, time_between_compacts: Duration) -> Result<(), Error>;
+    fn compact_log_async(
+        &self,
+        time_between_compacts: Duration,
+    ) -> Result<JoinHandle<Error>, Error>;
 }
 
 #[derive(Clone, Debug)]

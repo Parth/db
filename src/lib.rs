@@ -68,6 +68,8 @@ macro_rules! schema {
         use $crate::table::Table;
         use std::path::Path;
         use std::thread;
+        use tracing::error;
+        use std::thread::JoinHandle;
 
         #[derive(Clone, Debug)]
         pub struct $schema_name {
@@ -163,12 +165,21 @@ macro_rules! schema {
                 Ok(())
             }
 
-            fn compact_log_async(&self, time_between_compacts: Duration) -> Result<(), $crate::errors::Error> {
+            fn compact_log_async(&self, time_between_compacts: Duration) -> Result<JoinHandle<$crate::errors::Error>, $crate::errors::Error> {
                 $(let $table_name = self.$table_name.clone();)*
 
-                thread::spawn(move || {
+                let join_handle = thread::spawn(move || {
+                    let mut error;
+
                     loop {
-                        $(let ($table_name, writer) = $table_name.begin_transaction().unwrap();)*
+                        $(let ($table_name, writer) = match $table_name.begin_transaction() {
+                            Ok($table_name) => $table_name,
+                            Err(err) => {
+                                error!("async compacting error: {:?}", err);
+                                error = err;
+                                break
+                            }
+                        };)*
 
                         let mut data = vec![];
                         $(
@@ -177,12 +188,19 @@ macro_rules! schema {
                             }
                         )*
 
-                        writer.compact_log(data).unwrap();
-                        thread::sleep(time_between_compacts)
+                        if let Err(err) = writer.compact_log(data) {
+                            error!("async compacting error: {:?}", err);
+                            error = err;
+                            break
+                        }
+
+                        thread::sleep(time_between_compacts);
                     }
+
+                    error
                 });
 
-                Ok(())
+                Ok(join_handle)
             }
         }
 
