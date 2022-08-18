@@ -172,6 +172,8 @@ macro_rules! schema {
                     let mut error;
 
                     loop {
+                        thread::sleep(time_between_compacts);
+
                         $(let ($table_name, writer) = match $table_name.begin_transaction() {
                             Ok($table_name) => $table_name,
                             Err(err) => {
@@ -193,8 +195,6 @@ macro_rules! schema {
                             error = err;
                             break
                         }
-
-                        thread::sleep(time_between_compacts);
                     }
 
                     error
