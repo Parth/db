@@ -30,7 +30,7 @@ pub enum TableEvent<K: Key, V: Value> {
 }
 
 pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
-    fn open_file<P>(dir: P) -> Result<File, Error>
+    fn open_log<P>(dir: P) -> Result<(File, PathBuf), Error>
     where
         P: AsRef<Path>,
     {
@@ -43,20 +43,7 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
 
         path.push(schema_name);
 
-        OpenOptions::new()
-            .read(true)
-            .create(true)
-            .append(true)
-            .open(&path)
-            .map_err(|err| {
-                Error::OsError(
-                    format!(
-                        "While opening {:?} during startup, we received an error from the OS: {}",
-                        path, err
-                    ),
-                    err,
-                )
-            })
+        Ok((open_file(&path)?, path))
     }
 
     fn parse_log(file: &mut File) -> Result<(Vec<OnDisk>, bool), Error> {
@@ -119,47 +106,102 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
     fn init<P: AsRef<Path>>(path: P) -> Result<InMemory, Error>;
 }
 
+pub trait LogCompacter {
+    fn compact_log(&self) -> Result<(), Error>;
+}
+
 #[derive(Clone, Debug)]
 pub struct Writer {
     file: Arc<Mutex<File>>,
+    path: Arc<PathBuf>,
 }
 
 impl Writer {
-    pub fn init(file: File) -> Self {
+    pub fn init<P: AsRef<Path>>(file: File, path: P) -> Self {
         let file = Arc::new(Mutex::new(file));
+        let path = Arc::new(path.as_ref().to_path_buf());
 
-        Self { file }
+        Self { file, path }
     }
 
     pub fn append<S: Serialize>(&self, data: &S) -> Result<(), Error> {
-        let mut data = bincode::serialize(&LogItems::Single(data))
-            .map_err(|err| Error::serialize(std::any::type_name::<LogItems<S>>(), err))?;
-        let size = data.len() as u32;
-
-        let mut to_write = size.to_be_bytes().to_vec();
-        to_write.append(&mut data);
-        self.file
+        let mut file = self.file
             .lock()
-            .map_err(|err| Error::LockError(format!("Writer lock poisoned, this suggest an internal, unexpected, database error. Error: {}", err)))?
-            .write_all(&to_write)
-            .map_err(|err| Error::OsError(format!("Failed to append {} bytes to the log, error: {}", to_write.len(), err), err))?;
+            .map_err(|err| Error::LockError(format!("Writer lock poisoned, this suggest an internal, unexpected, database error. Error: {}", err)))?;
 
-        Ok(())
+        Self::write_to_log(&mut *file, &LogItems::Single(data))
     }
 
     pub fn append_all<S: Serialize>(&self, data: Vec<S>) -> Result<(), Error> {
-        let mut data = bincode::serialize(&LogItems::Batch(data))
+        let mut file = self.file
+            .lock()
+            .map_err(|err| Error::LockError(format!("Writer lock poisoned, this suggest an internal, unexpected, database error. Error: {}", err)))?;
+
+        Self::write_to_log(&mut *file, &LogItems::Batch(data))
+    }
+
+    pub fn compact_log<S: Serialize>(&self, data: Vec<S>) -> Result<(), Error> {
+        let new_db_path = self.path.with_extension(".log_compaction");
+        let mut new_db = open_file(&new_db_path)?;
+
+        Self::write_to_log(&mut new_db, &LogItems::Batch(data))?;
+
+        fs::rename(new_db_path, self.path.as_ref()).map_err(|err| {
+            Error::OsError(
+                format!(
+                    "Failed to atomically overwrite old log with compacted log, error: {:?}.",
+                    err
+                ),
+                err,
+            )
+        })?;
+
+        let mut file = self
+            .file
+            .lock()
+            .map_err(|err| Error::LockError(format!("Writer lock poisoned, this suggest an internal, unexpected, database error. Error: {}", err)))?;
+
+        *file = new_db;
+
+        Ok(())
+    }
+
+    fn write_to_log<S: Serialize>(file: &mut File, data: &LogItems<S>) -> Result<(), Error> {
+        let mut data = bincode::serialize(data)
             .map_err(|err| Error::serialize(std::any::type_name::<LogItems<S>>(), err))?;
         let size = data.len() as u32;
 
         let mut to_write = size.to_be_bytes().to_vec();
         to_write.append(&mut data);
-        self.file
-            .lock()
-            .map_err(|err| Error::LockError(format!("Writer lock poisoned, this suggest an internal, unexpected, database error. Error: {}", err)))?
-            .write_all(&to_write)
-            .map_err(|err| Error::OsError(format!("Failed to append {} bytes to the log for a transaction, error: {}", to_write.len(), err), err))?;
+        file.write_all(&to_write).map_err(|err| {
+            Error::OsError(
+                format!(
+                    "Failed to append {} bytes to the log, error: {}",
+                    to_write.len(),
+                    err
+                ),
+                err,
+            )
+        })?;
 
         Ok(())
     }
+}
+
+fn open_file<P: AsRef<Path>>(path: P) -> Result<File, Error> {
+    OpenOptions::new()
+        .read(true)
+        .create(true)
+        .append(true)
+        .open(&path)
+        .map_err(|err| {
+            Error::OsError(
+                format!(
+                    "While opening log file {:?}, we received an error from the OS: {}",
+                    path.as_ref(),
+                    err
+                ),
+                err,
+            )
+        })
 }
