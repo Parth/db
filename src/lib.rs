@@ -160,7 +160,7 @@ macro_rules! schema {
                     }
                 )*
 
-                writer.compact_log(data).unwrap();
+                writer.compact_log(data)?;
 
                 Ok(())
             }
