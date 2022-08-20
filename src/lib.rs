@@ -165,21 +165,18 @@ macro_rules! schema {
                 Ok(())
             }
 
-            fn compact_log_async(&self, time_between_compacts: Duration) -> Result<JoinHandle<$crate::errors::Error>, $crate::errors::Error> {
+            fn start_background_compacter(&self, time_between_compacts: Duration) -> Result<JoinHandle<$crate::errors::Error>, $crate::errors::Error> {
                 $(let $table_name = self.$table_name.clone();)*
 
                 let join_handle = thread::spawn(move || {
-                    let mut error;
-
                     loop {
                         thread::sleep(time_between_compacts);
 
                         $(let ($table_name, writer) = match $table_name.begin_transaction() {
                             Ok($table_name) => $table_name,
                             Err(err) => {
-                                error!("async compacting error: {:?}", err);
-                                error = err;
-                                break
+                                error!("failed to begin transaction in background compaction: {:?}", err);
+                                return err;
                             }
                         };)*
 
@@ -191,13 +188,10 @@ macro_rules! schema {
                         )*
 
                         if let Err(err) = writer.compact_log(data) {
-                            error!("async compacting error: {:?}", err);
-                            error = err;
-                            break
+                            error!("failed to write compacted log in background compaction: {:?}", err);
+                            return err;
                         }
                     }
-
-                    error
                 });
 
                 Ok(join_handle)

@@ -111,7 +111,7 @@ pub trait Reader<OnDisk: DeserializeOwned, InMemory> {
 pub trait LogCompacter {
     fn compact_log(&self) -> Result<(), Error>;
 
-    fn compact_log_async(
+    fn start_background_compacter(
         &self,
         time_between_compacts: Duration,
     ) -> Result<JoinHandle<Error>, Error>;

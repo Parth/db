@@ -220,7 +220,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_async_log_compaction_1() {
+    fn test_background_compacter_1() {
         let db_path = &test_db();
 
         fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
@@ -234,7 +234,8 @@ pub mod tests {
             .metadata()
             .unwrap()
             .len();
-        db.compact_log_async(Duration::from_secs(3)).unwrap();
+        db.start_background_compacter(Duration::from_secs(3))
+            .unwrap();
         thread::sleep(Duration::from_secs(10));
         let size_after = File::open(db_path.join(SCHEMA_NAME))
             .unwrap()
@@ -253,7 +254,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_async_log_compaction_2() {
+    fn test_background_compacter_2() {
         let db_path = &test_db();
 
         fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
@@ -270,7 +271,8 @@ pub mod tests {
             .metadata()
             .unwrap()
             .len();
-        db.compact_log_async(Duration::from_secs(3)).unwrap();
+        db.start_background_compacter(Duration::from_secs(3))
+            .unwrap();
         thread::sleep(Duration::from_secs(10));
         let size_after = File::open(db_path.join(SCHEMA_NAME))
             .unwrap()
@@ -293,7 +295,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_async_log_compaction_3() {
+    fn test_background_compacter_compaction_3() {
         let db_path = &test_db();
 
         fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
@@ -323,7 +325,8 @@ pub mod tests {
             .metadata()
             .unwrap()
             .len();
-        db.compact_log_async(Duration::from_secs(3)).unwrap();
+        db.start_background_compacter(Duration::from_secs(3))
+            .unwrap();
         thread::sleep(Duration::from_secs(5));
 
         let size_after = File::open(db_path.join(SCHEMA_NAME))
@@ -346,7 +349,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_async_log_compaction_on_init() {
+    fn test_background_compacter_on_init() {
         let db_path = &test_db();
 
         fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
@@ -358,7 +361,8 @@ pub mod tests {
             .unwrap()
             .len();
 
-        db.compact_log_async(Duration::from_secs(3)).unwrap();
+        db.start_background_compacter(Duration::from_secs(3))
+            .unwrap();
         thread::sleep(Duration::from_secs(5));
 
         let size_after = File::open(db_path.join(SCHEMA_NAME))
@@ -374,7 +378,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_async_log_compaction_on_clear() {
+    fn test_background_compacter_on_clear() {
         let db_path = &test_db();
 
         fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
@@ -392,7 +396,8 @@ pub mod tests {
             .len();
 
         db.transaction(|tx| tx.table3.clear()).unwrap();
-        db.compact_log_async(Duration::from_secs(3)).unwrap();
+        db.start_background_compacter(Duration::from_secs(3))
+            .unwrap();
         thread::sleep(Duration::from_secs(5));
         let size_after = File::open(db_path.join(SCHEMA_NAME))
             .unwrap()
@@ -409,7 +414,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_async_log_compaction_multiple_edits() {
+    fn test_background_compacter_multiple_edits() {
         let db_path = &test_db();
 
         fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
@@ -425,7 +430,8 @@ pub mod tests {
             .unwrap()
             .len();
 
-        db.compact_log_async(Duration::from_secs(3)).unwrap();
+        db.start_background_compacter(Duration::from_secs(3))
+            .unwrap();
         thread::sleep(Duration::from_secs(5));
 
         let size_after = File::open(db_path.join(SCHEMA_NAME))
