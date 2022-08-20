@@ -295,7 +295,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_background_compacter_compaction_3() {
+    fn test_background_compacter_3() {
         let db_path = &test_db();
 
         fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
