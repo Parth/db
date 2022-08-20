@@ -175,7 +175,7 @@ macro_rules! schema {
                         $(let ($table_name, writer) = match $table_name.begin_transaction() {
                             Ok($table_name) => $table_name,
                             Err(err) => {
-                                error!("failed to begin transaction in background compaction: {:?}", err);
+                                error!("failed to begin transaction in background compacter: {:?}", err);
                                 return err;
                             }
                         };)*
@@ -188,7 +188,7 @@ macro_rules! schema {
                         )*
 
                         if let Err(err) = writer.compact_log(data) {
-                            error!("failed to write compacted log in background compaction: {:?}", err);
+                            error!("failed to write compacted log in background compacter: {:?}", err);
                             return err;
                         }
                     }
