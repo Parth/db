@@ -166,29 +166,14 @@ macro_rules! schema {
             }
 
             fn start_background_compacter(&self, time_between_compacts: Duration) -> Result<JoinHandle<$crate::errors::Error>, $crate::errors::Error> {
-                $(let $table_name = self.$table_name.clone();)*
+                let schema = self.clone();
 
                 let join_handle = thread::spawn(move || {
                     loop {
                         thread::sleep(time_between_compacts);
 
-                        $(let ($table_name, writer) = match $table_name.begin_transaction() {
-                            Ok($table_name) => $table_name,
-                            Err(err) => {
-                                error!("failed to begin transaction in background compacter: {:?}", err);
-                                return err;
-                            }
-                        };)*
-
-                        let mut data = vec![];
-                        $(
-                            for (key, val) in $table_name.get_all() {
-                                data.push(helper_log::$table_name::insert(key, val));
-                            }
-                        )*
-
-                        if let Err(err) = writer.compact_log(data) {
-                            error!("failed to write compacted log in background compacter: {:?}", err);
+                        if let Err(err) = schema.compact_log() {
+                            error!("failed to compact log in background compacter: {:?}", err);
                             return err;
                         }
                     }
