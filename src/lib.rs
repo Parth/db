@@ -67,6 +67,9 @@ macro_rules! schema {
         use $crate::log::{TableEvent, Reader, SchemaEvent, Writer, LogCompacter};
         use $crate::table::Table;
         use std::path::Path;
+        use std::thread;
+        use tracing::error;
+        use std::thread::JoinHandle;
 
         #[derive(Clone, Debug)]
         pub struct $schema_name {
@@ -160,6 +163,23 @@ macro_rules! schema {
                 writer.compact_log(data)?;
 
                 Ok(())
+            }
+
+            fn start_background_compacter(&self, time_between_compacts: Duration) -> Result<JoinHandle<$crate::errors::Error>, $crate::errors::Error> {
+                let schema = self.clone();
+
+                let join_handle = thread::spawn(move || {
+                    loop {
+                        thread::sleep(time_between_compacts);
+
+                        if let Err(err) = schema.compact_log() {
+                            error!("failed to compact log in background compacter: {:?}", err);
+                            return err;
+                        }
+                    }
+                });
+
+                Ok(join_handle)
             }
         }
 
