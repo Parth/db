@@ -1,33 +1,40 @@
 #[cfg(test)]
 pub mod tests {
-    use std::fs;
     use std::fs::File;
     use std::path::PathBuf;
     use std::time::Duration;
+    use std::{fs, thread};
 
-    use serde::{Deserialize, Serialize};
+    use hmdb::log::{LogCompacter, Reader};
     use uuid::Uuid;
 
+    use crate::tests::schema::{Db, Test, Value};
     use hmdb::schema;
     use hmdb::transaction::Transaction;
 
-    const SCHEMA_NAME: &str = "schema_tests2__tests__Db";
+    const SCHEMA_NAME: &str = "schema_tests2__tests__schema__Db";
 
-    #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-    pub struct Test;
+    mod schema {
+        use hmdb::schema;
+        use serde::{Deserialize, Serialize};
 
-    #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-    pub struct Value {
-        pub field: Vec<u8>,
-        pub field2: Vec<u8>,
-    }
-    schema! {
-        Db {
-            table1: <Test, String>,
-            table2: <Test, u128>,
-            table3: <String, Vec<u8>>,
-            table4: <u8, Value>,
-            table5: <String, u8>
+        #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+        pub struct Test;
+
+        #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+        pub struct Value {
+            pub field: Vec<u8>,
+            pub field2: Vec<u8>,
+        }
+
+        schema! {
+            Db {
+                table1: <Test, String>,
+                table2: <Test, u128>,
+                table3: <String, Vec<u8>>,
+                table4: <u8, Value>,
+                table5: <String, u8>
+            }
         }
     }
 

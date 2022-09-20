@@ -70,6 +70,7 @@ macro_rules! schema {
         use std::thread;
         use tracing::error;
         use std::thread::JoinHandle;
+        use std::time::Duration;
 
         #[derive(Clone, Debug)]
         pub struct $schema_name {

@@ -3,7 +3,7 @@ pub mod schema {
     use hmdb::transaction::Transaction;
     use std::fs;
     use std::path::PathBuf;
-    use std::time::{Duration, Instant};
+    use std::time::Instant;
     use uuid::Uuid;
 
     // Could make a type which holds a db and then on drop will clean up the db file.
