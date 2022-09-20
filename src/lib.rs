@@ -156,7 +156,7 @@ macro_rules! schema {
                 let mut data = vec![];
                 $(
                     for (key, val) in $table_name.get_all() {
-                        data.push(helper_log::$table_name::insert(key, val));
+                        data.push(helper_log::$table_name::insert(key.clone(), val.clone()));
                     }
                 )*
 
