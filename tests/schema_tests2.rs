@@ -9,7 +9,6 @@ pub mod tests {
     use uuid::Uuid;
 
     use crate::tests::schema::{Db, Test, Value};
-    use hmdb::schema;
     use hmdb::transaction::Transaction;
 
     const SCHEMA_NAME: &str = "schema_tests2__tests__schema__Db";
@@ -161,7 +160,7 @@ pub mod tests {
     fn test_clear_no_tx_1() {
         let db_path = &test_db();
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
         let db = Db::init(db_path).unwrap();
         db.table1.insert(Test {}, "test".to_string()).unwrap();
         db.table2.insert(Test {}, 123).unwrap();
@@ -176,14 +175,14 @@ pub mod tests {
         .unwrap();
 
         assert!(db.table3.get_all().unwrap().is_empty());
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
     }
 
     #[test]
     fn test_clear_no_tx_2() {
         let db_path = &test_db();
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
         let db = Db::init(db_path).unwrap();
         db.table1.insert(Test {}, "test".to_string()).unwrap();
         db.table2.insert(Test {}, 123).unwrap();
@@ -199,14 +198,14 @@ pub mod tests {
         .unwrap();
 
         assert!(db.table3.get_all().unwrap().is_empty());
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
     }
 
     #[test]
     fn test_clear_no_tx_3() {
         let db_path = &test_db();
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
         let db = Db::init(db_path).unwrap();
         db.table1.insert(Test {}, "test".to_string()).unwrap();
         db.table2.insert(Test {}, 123).unwrap();
@@ -223,14 +222,14 @@ pub mod tests {
 
         let db = Db::init(db_path).unwrap();
         assert!(db.table3.get_all().unwrap().is_empty());
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
     }
 
     #[test]
     fn test_background_compacter_1() {
         let db_path = &test_db();
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
         let db = Db::init(db_path).unwrap();
 
         db.table1.insert(Test {}, "apple".to_string()).unwrap();
@@ -257,14 +256,14 @@ pub mod tests {
             "sauce".to_string()
         );
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
     }
 
     #[test]
     fn test_background_compacter_2() {
         let db_path = &test_db();
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
         let db = Db::init(db_path).unwrap();
 
         db.table2.insert(Test {}, 126).unwrap();
@@ -298,14 +297,14 @@ pub mod tests {
             vec![3, 2, 1]
         );
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
     }
 
     #[test]
     fn test_background_compacter_3() {
         let db_path = &test_db();
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
         let db = Db::init(db_path).unwrap();
 
         db.table4
@@ -352,14 +351,14 @@ pub mod tests {
             }
         );
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
     }
 
     #[test]
     fn test_background_compacter_on_init() {
         let db_path = &test_db();
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
         let db = Db::init(db_path).unwrap();
 
         let size_before = File::open(db_path.join(SCHEMA_NAME))
@@ -381,14 +380,14 @@ pub mod tests {
         assert_eq!(size_before, 0);
         assert_eq!(size_after, 16);
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
     }
 
     #[test]
     fn test_background_compacter_on_clear() {
         let db_path = &test_db();
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
         let db = Db::init(db_path).unwrap();
 
         db.table3.insert("c".to_string(), vec![3, 2, 1]).unwrap();
@@ -417,14 +416,14 @@ pub mod tests {
         assert_eq!(db.table3.get(&"c".to_string()).unwrap(), None);
         assert_eq!(db.table3.get(&"d".to_string()).unwrap(), None);
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
     }
 
     #[test]
     fn test_background_compacter_multiple_edits() {
         let db_path = &test_db();
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
         let db = Db::init(db_path).unwrap();
 
         db.table3.insert("a".to_string(), vec![3, 2, 1]).unwrap();
@@ -479,14 +478,14 @@ pub mod tests {
 
         assert_eq!(db.table2.get(&Test {}).unwrap().unwrap(), 20);
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
     }
 
     #[test]
     fn test_log_compaction_1() {
         let db_path = &test_db();
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
         let db = Db::init(db_path).unwrap();
 
         db.table1.insert(Test {}, "test".to_string()).unwrap();
@@ -514,14 +513,14 @@ pub mod tests {
             "test".to_string()
         );
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
     }
 
     #[test]
     fn test_log_compaction_2() {
         let db_path = &test_db();
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
         let db = Db::init(db_path).unwrap();
 
         db.table2.insert(Test {}, 123).unwrap();
@@ -558,14 +557,14 @@ pub mod tests {
             vec![1, 3]
         );
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
     }
 
     #[test]
     fn test_log_compaction_3() {
         let db_path = &test_db();
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
         let db = Db::init(db_path).unwrap();
 
         db.table4
@@ -610,14 +609,14 @@ pub mod tests {
             }
         );
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
     }
 
     #[test]
     fn test_log_compaction_on_init() {
         let db_path = &test_db();
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
         let db = Db::init(db_path).unwrap();
 
         let size_before = File::open(db_path.join(SCHEMA_NAME))
@@ -637,14 +636,14 @@ pub mod tests {
         assert_eq!(size_before, 0);
         assert_eq!(size_after, 16);
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
     }
 
     #[test]
     fn test_log_compaction_on_clear() {
         let db_path = &test_db();
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
         let db = Db::init(db_path).unwrap();
 
         db.table3.insert("a".to_string(), vec![3, 2, 1]).unwrap();
@@ -673,6 +672,6 @@ pub mod tests {
         assert_eq!(db.table3.get(&"a".to_string()).unwrap(), None);
         assert_eq!(db.table3.get(&"b".to_string()).unwrap(), None);
 
-        fs::remove_dir_all(db_path).unwrap_or_else(|_| {});
+        fs::remove_dir_all(db_path).unwrap_or(());
     }
 }
