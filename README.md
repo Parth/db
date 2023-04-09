@@ -1,4 +1,4 @@
-superseded by github.com/parth/db-rs
+superseded by: [db-rs](https://github.com/parth/db-rs)
 
 Very rough draft, just getting some ideas down.
 
